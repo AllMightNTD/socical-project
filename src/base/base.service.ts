@@ -1,4 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { instanceToPlain } from 'class-transformer';
 import { paginate, Paginated, PaginateQuery } from 'nestjs-paginate';
 import { DeleteResult, Repository } from 'typeorm';
@@ -38,6 +38,9 @@ export abstract class BaseService {
       where: conditions,
       ...options,
     });
+    if (!data) {
+      throw new NotFoundException('Data not found');
+    }
     return {
       data: data,
     };
