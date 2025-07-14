@@ -3,9 +3,16 @@ import {
   Column,
   CreateDateColumn,
   Entity,
+  OneToMany,
+  OneToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { Profile } from './profile.entity';
+import { Post } from './posts.entity';
+import { Comment } from './comments.entity';
+import { Reaction } from './reactions.entity';
+import { UserSettings } from './user-settings.entity';
 
 @Entity('users')
 export class User extends BaseEntity {
@@ -13,14 +20,29 @@ export class User extends BaseEntity {
   id: number;
 
   @Column({ type: 'varchar', length: 255 })
-  first_name: string;
+  email: string;
 
   @Column({ type: 'varchar', length: 255 })
-  last_name: string;
+  password: string;
 
-  @CreateDateColumn({ type: 'timestamp' })
-  public created_at: Date;
+  @OneToOne(() => Profile, (profile) => profile.user)
+  profile: Profile;
 
-  @UpdateDateColumn({ type: 'timestamp' })
-  public updated_at: Date;
+  @CreateDateColumn()
+  created_at: Date;
+
+  @UpdateDateColumn()
+  updated_at: Date;
+
+  @OneToOne(() => UserSettings, (settings) => settings.user)
+  settings: UserSettings;
+
+  @OneToMany(() => Post, (post) => post.user)
+  posts: Post[];
+
+  @OneToMany(() => Comment, (comment) => comment.user)
+  comments: Comment[];
+
+  @OneToMany(() => Reaction, (reaction) => reaction.user)
+  reactions: Reaction[];
 }
