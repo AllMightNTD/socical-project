@@ -2,73 +2,67 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer base {
-  :root {
-    /* Base Colors Mapping */
-    --background: 190 100% 98%; /* #F4FDFF */
-    --foreground: 210 61% 16%; /* #102A43 */
+:root {
+  /* Bảng màu chuẩn Sociala */
+  --background: #f0f2f5; /* Nền xám nhạt đặc trưng của Facebook/Sociala */
+  --card: #ffffff; /* Màu trắng tinh khiết cho các khối nội dung */
+  --primary: #1a77f2; /* Xanh Royal chủ đạo */
+  --primary-hover: #166fe5;
+  --text-main: #050505; /* Đen sâu cho tiêu đề */
+  --text-secondary: #65676b; /* Xám cho nội dung phụ và mô tả */
+  --border: #e4e6eb; /* Đường kẻ tinh tế */
 
-    --card: 0 0% 100%; /* #FFFFFF */
-    --card-foreground: 210 61% 16%;
-
-    --primary: 195 100% 50%; /* #00C2FF */
-    --primary-foreground: 0 0% 100%;
-
-    --accent: 169 100% 50%; /* #00FFD1 */
-    --accent-foreground: 210 61% 16%;
-
-    --muted: 200 100% 94%; /* #BEEFFF (Border Soft) */
-    --muted-foreground: 210 20% 40%;
-
-    --border: 200 100% 94%; /* #BEEFFF */
-    --input: 200 100% 94%;
-    --ring: 195 100% 50%;
-
-    --radius: 1.5rem;
-  }
-
-  .dark {
-    /* Chế độ tối theo tông Xanh Neon/Deep Ocean */
-    --background: 210 61% 8%; /* Very Dark Blue */
-    --foreground: 190 100% 98%;
-    --card: 210 61% 10%;
-    --card-foreground: 190 100% 98%;
-    --primary: 195 100% 50%;
-    --border: 210 61% 15%;
-    --muted: 210 61% 15%;
-  }
+  /* Các màu Pastel cho Icon Sidebar (theo hình ảnh) */
+  --icon-blue: #1a77f2;
+  --icon-red: #f02849;
+  --icon-yellow: #f7b928;
+  --icon-orange: #f27e20;
+  --icon-cyan: #2abba7;
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
-
   body {
-    @apply bg-background text-foreground antialiased;
-    font-family: var(--font-quicksand), sans-serif;
-    scroll-behavior: smooth;
+    @apply bg-[var(--background)] text-[var(--text-main)] antialiased;
+    font-feature-settings:
+      "overline" 0,
+      "vert" 0,
+      "subs" 0,
+      "sups" 0;
   }
 
-  /* Tiêu đề năng động với màu Text chủ đạo #102A43 */
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6 {
-    @apply font-bold tracking-tight;
-    color: hsl(var(--foreground));
-  }
-
-  /* Bo tròn ảnh "mềm xèo" đúng phong cách trẻ trung */
-  img {
-    @apply rounded-[1.5rem] object-cover;
+  /* Tối ưu hóa các thẻ input và textarea */
+  input,
+  textarea {
+    @apply bg-[#F0F2F5] border-none focus:ring-2 focus:ring-blue-100 transition-all;
   }
 }
 
-/* Custom Utilities cho thanh cuộn nhí nhảnh */
+@layer components {
+  /* Lớp tiện ích cho các khối Card trong hình */
+  .social-card {
+    @apply bg-white rounded-[1.25rem] shadow-[0_2px_12px_rgba(0,0,0,0.04)] border border-white transition-all;
+  }
+
+  /* Nút bấm chuẩn Sociala */
+  .btn-social-primary {
+    @apply bg-[var(--primary)] text-white px-6 py-2 rounded-xl font-bold 
+           hover:bg-[var(--primary-hover)] transition-all active:scale-95
+           disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .btn-social-secondary {
+    @apply bg-[#E4E6EB] text-[var(--text-main)] px-6 py-2 rounded-xl font-bold 
+           hover:bg-[#D8DADF] transition-all active:scale-95;
+  }
+
+  /* Hiệu ứng mờ Glassmorphism nhẹ cho Header */
+  .glass-header {
+    @apply sticky top-0 z-50 bg-white/80 backdrop-blur-xl border-b border-gray-100;
+  }
+}
+
 @layer utilities {
+  /* Ẩn thanh cuộn nhưng vẫn cho phép cuộn (Dùng cho Stories và Sidebar) */
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
@@ -77,8 +71,30 @@
     scrollbar-width: none;
   }
 
-  /* Hiệu ứng đổ bóng màu Cyan nhẹ cho các Card */
-  .shadow-soft {
-    box-shadow: 0 10px 40px -10px rgba(0, 194, 255, 0.15);
+  /* Hiệu ứng hover nhẹ cho các item menu */
+  .hover-subtle {
+    @apply hover:bg-[#F0F2F5] transition-colors duration-200;
   }
+
+  /* Khoảng cách an toàn cho Mobile */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Tùy chỉnh thanh cuộn mặc định cho hiện đại */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-gray-300 rounded-full border-4 border-transparent bg-clip-padding;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gray-400;
 }

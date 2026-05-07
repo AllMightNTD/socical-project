@@ -1,120 +1,222 @@
-// src/components/feed/PostCard.tsx
 "use client";
-import { motion } from "framer-motion";
 import {
   Bookmark,
   Heart,
   MessageCircle,
   MoreHorizontal,
   Share2,
+  ThumbsUp,
 } from "lucide-react";
-import Image from "next/image"; // Next.js Image Optimization
+import { useState } from "react";
+import { cn, formatCount } from "../../lib/utils";
 
-export default function PostCard({ post }: { post: any }) {
+interface PostProps {
+  post: {
+    id: string;
+    user: { name: string; avatar: string };
+    time: string;
+    content: string;
+    images: string[];
+    likes: number;
+    comments: number;
+    shares: number;
+  };
+}
+
+export default function PostCard({ post }: PostProps) {
+  const [liked, setLiked] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [likeCount, setLikeCount] = useState(post.likes);
+  const [showComment, setShowComment] = useState(false);
+
+  const handleLike = () => {
+    setLiked(!liked);
+    setLikeCount((c) => (liked ? c - 1 : c + 1));
+  };
+
+  const imageGrid = () => {
+    if (post.images.length === 0) return null;
+    if (post.images.length === 1) {
+      return (
+        <div className="mt-3 rounded-2xl overflow-hidden">
+          <img
+            src={post.images[0]}
+            alt=""
+            className="w-full h-64 object-cover hover:scale-[1.01] transition-transform duration-300"
+          />
+        </div>
+      );
+    }
+    if (post.images.length === 2) {
+      return (
+        <div className="mt-3 grid grid-cols-2 gap-1 rounded-2xl overflow-hidden">
+          {post.images.map((img, i) => (
+            <img
+              key={i}
+              src={img}
+              alt=""
+              className="w-full h-48 object-cover hover:scale-[1.01] transition-transform duration-300"
+            />
+          ))}
+        </div>
+      );
+    }
+    return (
+      <div className="mt-3 grid grid-cols-3 gap-1 rounded-2xl overflow-hidden">
+        {post.images.slice(0, 2).map((img, i) => (
+          <img
+            key={i}
+            src={img}
+            alt=""
+            className="w-full h-36 object-cover hover:scale-[1.01] transition-transform duration-300"
+          />
+        ))}
+        <div className="relative">
+          <img
+            src={post.images[2]}
+            alt=""
+            className="w-full h-36 object-cover"
+          />
+          {post.images.length > 3 && (
+            <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+              <span className="text-white text-lg font-bold">
+                +{post.images.length - 3}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <motion.article
-      whileHover={{ y: -4 }}
-      className="bg-white rounded-[2.5rem] border border-[#BEEFFF] shadow-[0_10px_40px_rgba(0,194,255,0.06)] overflow-hidden mb-6 transition-all"
-    >
-      {/* Header: Semantic Grouping */}
-      <header className="p-5 flex items-center justify-between">
-        <div className="flex items-center gap-3 cursor-pointer group">
-          {/* Avatar Container */}
-          <div className="relative p-[2.5px] rounded-[1.4rem] bg-gradient-to-tr from-[#00C2FF] to-[#00FFD1] shadow-sm group-hover:rotate-6 transition-transform">
-            <div className="relative w-10 h-10 bg-white rounded-[1.3rem] overflow-hidden border-[2px] border-white">
-              <Image
-                src={post.author_avatar}
-                alt={`Ảnh đại diện của ${post.author_name}`}
-                fill
-                sizes="40px"
-                className="object-cover"
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden hover:shadow-md transition-shadow duration-300">
+      <div className="p-4">
+        {/* Header */}
+        <div className="flex items-start justify-between mb-3">
+          <div className="flex items-center gap-3">
+            <div className="relative">
+              <img
+                src={post.user.avatar}
+                alt={post.user.name}
+                className="w-10 h-10 rounded-full object-cover ring-2 ring-blue-50"
               />
+              <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 rounded-full border-2 border-white" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-800 hover:text-blue-600 cursor-pointer transition-colors">
+                {post.user.name}
+              </p>
+              <p className="text-xs text-slate-400">{post.time}</p>
             </div>
           </div>
-          <div>
-            <h4 className="font-black text-sm tracking-tight text-[#102A43] group-hover:text-[#00C2FF] transition-colors">
-              {post.author_name}
-            </h4>
-            <time
-              className="text-[10px] text-[#00C2FF] uppercase font-black tracking-widest block"
-              dateTime="2024-01-01" // Trong thực tế, hãy truyền giá trị post.created_at vào đây
+          <button className="text-slate-400 hover:text-slate-600 hover:bg-slate-50 p-1.5 rounded-lg transition-all">
+            <MoreHorizontal size={16} />
+          </button>
+        </div>
+
+        {/* Content */}
+        <p className="text-sm text-slate-600 leading-relaxed">
+          {post.content.length > 150 ? (
+            <>
+              {post.content.slice(0, 150)}{" "}
+              <button className="text-blue-500 font-medium hover:underline">
+                See more
+              </button>
+            </>
+          ) : (
+            post.content
+          )}
+        </p>
+
+        {/* Images */}
+        {imageGrid()}
+
+        {/* Stats */}
+        <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-50">
+          <div className="flex items-center gap-1.5">
+            <div className="flex -space-x-1">
+              <span className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center">
+                <ThumbsUp size={10} className="text-white fill-white" />
+              </span>
+              <span className="w-5 h-5 rounded-full bg-red-500 flex items-center justify-center">
+                <Heart size={10} className="text-white fill-white" />
+              </span>
+            </div>
+            <span className="text-xs text-slate-500 font-medium">
+              {formatCount(likeCount)} Like
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            <button
+              className="text-xs text-slate-400 hover:text-slate-600 transition-colors flex items-center gap-1"
+              onClick={() => setShowComment(!showComment)}
             >
-              12 phút trước • <span className="text-[#00FFD1]">Đang nổi</span>
-            </time>
+              <MessageCircle size={13} />
+              {post.comments} Comment
+            </button>
+            <span className="text-xs text-slate-400 flex items-center gap-1">
+              <Share2 size={13} />
+              {post.shares} Share
+            </span>
           </div>
         </div>
-        <button
-          aria-label="Tùy chọn bài viết"
-          className="w-9 h-9 flex items-center justify-center rounded-xl text-gray-300 hover:bg-[#F4FDFF] hover:text-[#00C2FF] transition-all"
-        >
-          <MoreHorizontal size={20} />
-        </button>
-      </header>
-
-      {/* Content Section */}
-      <div className="px-6 pb-4">
-        <p className="text-[15px] leading-relaxed text-[#102A43] font-medium">
-          {post.content}
-        </p>
       </div>
 
-      {/* Main Image Section: Optimized */}
-      {post.image && (
-        <div className="px-4 pb-2">
-          <div className="relative rounded-[2rem] overflow-hidden aspect-video bg-[#F4FDFF] border border-[#BEEFFF]/50 shadow-inner">
-            <Image
-              src={post.image}
-              alt={`Hình ảnh minh họa cho bài viết: ${post.content.substring(0, 50)}...`}
-              fill
-              sizes="(max-width: 768px) 100vw, 600px"
-              className="object-cover hover:scale-105 transition-transform duration-700"
-              loading="lazy"
+      {/* Actions */}
+      <div className="flex items-center border-t border-slate-50">
+        <button
+          onClick={handleLike}
+          className={cn(
+            "flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-all hover:bg-slate-50",
+            liked ? "text-blue-500" : "text-slate-500",
+          )}
+        >
+          <ThumbsUp size={15} className={cn(liked && "fill-blue-500")} />
+          <span className="text-xs">Like</span>
+        </button>
+        <button
+          className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-blue-500 transition-all"
+          onClick={() => setShowComment(!showComment)}
+        >
+          <MessageCircle size={15} />
+          <span className="text-xs">Comment</span>
+        </button>
+        <button
+          onClick={() => setSaved(!saved)}
+          className={cn(
+            "flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium transition-all hover:bg-slate-50",
+            saved ? "text-blue-500" : "text-slate-500",
+          )}
+        >
+          <Bookmark size={15} className={cn(saved && "fill-blue-500")} />
+          <span className="text-xs">Save</span>
+        </button>
+        <button className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-slate-500 hover:bg-slate-50 hover:text-blue-500 transition-all">
+          <Share2 size={15} />
+          <span className="text-xs">Share</span>
+        </button>
+      </div>
+
+      {/* Comment box */}
+      {showComment && (
+        <div className="px-4 pb-4 border-t border-slate-50">
+          <div className="flex items-center gap-2 mt-3">
+            <img
+              src="https://api.dicebear.com/7.x/avataaars/svg?seed=me&backgroundColor=b6e3f4"
+              alt=""
+              className="w-8 h-8 rounded-full"
             />
+            <div className="flex-1 bg-slate-50 rounded-full px-4 py-2">
+              <input
+                type="text"
+                placeholder="Write a comment..."
+                className="w-full bg-transparent text-sm text-slate-600 placeholder:text-slate-400 outline-none"
+              />
+            </div>
           </div>
         </div>
       )}
-
-      {/* Interaction Footer: Accessibility Improved */}
-      <footer className="p-5 pt-2 flex items-center justify-between">
-        <div className="flex items-center gap-5">
-          <button
-            aria-label="Yêu thích bài viết"
-            className="group flex items-center gap-2 text-[#102A43]/40 hover:text-[#00C2FF] transition-all"
-          >
-            <div className="p-2 rounded-xl group-hover:bg-[#00C2FF]/10 transition-all">
-              <Heart
-                size={22}
-                className="group-active:scale-125 transition-transform group-hover:fill-[#00C2FF]/20"
-              />
-            </div>
-            <span className="text-xs font-black">2.4k</span>
-          </button>
-
-          <button
-            aria-label="Bình luận bài viết"
-            className="group flex items-center gap-2 text-[#102A43]/40 hover:text-[#00FFD1] transition-all"
-          >
-            <div className="p-2 rounded-xl group-hover:bg-[#00FFD1]/10 transition-all">
-              <MessageCircle size={22} />
-            </div>
-            <span className="text-xs font-black">182</span>
-          </button>
-
-          <button
-            aria-label="Chia sẻ bài viết"
-            className="p-2 rounded-xl text-[#102A43]/40 hover:bg-[#F4FDFF] hover:text-[#00C2FF] transition-all"
-          >
-            <Share2 size={20} />
-          </button>
-        </div>
-
-        <button
-          aria-label="Lưu vào bộ sưu tập"
-          className="p-2 rounded-xl text-[#102A43]/40 hover:bg-[#F4FDFF] hover:text-yellow-400 transition-all"
-        >
-          <Bookmark size={22} className="group-active:fill-yellow-400" />
-        </button>
-      </footer>
-    </motion.article>
+    </div>
   );
 }
