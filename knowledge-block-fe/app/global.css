@@ -1,0 +1,84 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Base Colors Mapping */
+    --background: 190 100% 98%; /* #F4FDFF */
+    --foreground: 210 61% 16%; /* #102A43 */
+
+    --card: 0 0% 100%; /* #FFFFFF */
+    --card-foreground: 210 61% 16%;
+
+    --primary: 195 100% 50%; /* #00C2FF */
+    --primary-foreground: 0 0% 100%;
+
+    --accent: 169 100% 50%; /* #00FFD1 */
+    --accent-foreground: 210 61% 16%;
+
+    --muted: 200 100% 94%; /* #BEEFFF (Border Soft) */
+    --muted-foreground: 210 20% 40%;
+
+    --border: 200 100% 94%; /* #BEEFFF */
+    --input: 200 100% 94%;
+    --ring: 195 100% 50%;
+
+    --radius: 1.5rem;
+  }
+
+  .dark {
+    /* Chế độ tối theo tông Xanh Neon/Deep Ocean */
+    --background: 210 61% 8%; /* Very Dark Blue */
+    --foreground: 190 100% 98%;
+    --card: 210 61% 10%;
+    --card-foreground: 190 100% 98%;
+    --primary: 195 100% 50%;
+    --border: 210 61% 15%;
+    --muted: 210 61% 15%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-quicksand), sans-serif;
+    scroll-behavior: smooth;
+  }
+
+  /* Tiêu đề năng động với màu Text chủ đạo #102A43 */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    @apply font-bold tracking-tight;
+    color: hsl(var(--foreground));
+  }
+
+  /* Bo tròn ảnh "mềm xèo" đúng phong cách trẻ trung */
+  img {
+    @apply rounded-[1.5rem] object-cover;
+  }
+}
+
+/* Custom Utilities cho thanh cuộn nhí nhảnh */
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Hiệu ứng đổ bóng màu Cyan nhẹ cho các Card */
+  .shadow-soft {
+    box-shadow: 0 10px 40px -10px rgba(0, 194, 255, 0.15);
+  }
+}

@@ -1,0 +1,133 @@
+<html lang='en'>
+  <head>
+    <meta charset='UTF-8' />
+    <meta name='viewport' content='width=device-width, initial-scale=1.0' />
+    <title>Welcome to {{appName}}!</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: #f4f4f4;
+        font-family: Arial, Helvetica, sans-serif;
+      }
+      .container {
+        max-width: 600px;
+        margin: 40px auto;
+        background-color: #ffffff;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      }
+      .header {
+        background-color: #10b981; /* Emerald green - success color */
+        color: #ffffff;
+        padding: 40px 30px;
+        text-align: center;
+      }
+      .header h1 {
+        margin: 0;
+        font-size: 28px;
+        font-weight: bold;
+      }
+      .header p {
+        margin: 10px 0 0;
+        font-size: 16px;
+        opacity: 0.9;
+      }
+      .content {
+        padding: 40px 30px;
+        color: #333333;
+        line-height: 1.6;
+      }
+      .content p {
+        margin: 0 0 20px;
+      }
+      .button {
+        display: block;
+        width: fit-content;
+        margin: 30px auto;
+        padding: 16px 36px;
+        background-color: #10b981;
+        color: #ffffff !important;
+        text-decoration: none;
+        font-size: 18px;
+        font-weight: bold;
+        border-radius: 8px;
+        text-align: center;
+        box-shadow: 0 4px 6px rgba(16, 185, 129, 0.3);
+      }
+      .button:hover {
+        background-color: #059669;
+      }
+      .highlight {
+        background-color: #ecfdf5;
+        border-left: 4px solid #10b981;
+        padding: 15px;
+        margin: 25px 0;
+        font-size: 15px;
+        color: #065f46;
+      }
+      .footer {
+        background-color: #f9fafb;
+        padding: 30px;
+        text-align: center;
+        font-size: 13px;
+        color: #6b7280;
+      }
+      .footer a {
+        color: #10b981;
+        text-decoration: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class='container'>
+      <!-- Header -->
+      <div class='header'>
+        <h1>Welcome aboard!</h1>
+        <p>Your account has been successfully created</p>
+      </div>
+
+      <!-- Content -->
+      <div class='content'>
+
+        <p>Congratulations! You have successfully registered an account on
+          <strong>{{appName}}</strong>.</p>
+
+        <p>You can now log in and start exploring all the amazing features we
+          offer.</p>
+
+        <div class='highlight'>
+          <strong>Tip:</strong>
+          Keep your account secure by using a strong password and enabling
+          two-factor authentication (if available).
+        </div>
+
+        <a href='{{loginUrl}}' class='button' target='_blank'>
+          Log In Now
+        </a>
+
+        <p>If the button above doesn't work, you can copy and paste the
+          following link into your browser:</p>
+        <p
+          style='word-break: break-all; font-size: 14px; color: #4b5563; margin-top: 10px;'
+        >
+          {{loginUrl}}
+        </p>
+
+        <p>Thank you for joining us — we're excited to have you on board!</p>
+
+        <p>Best regards,<br />The {{appName}} Team</p>
+      </div>
+
+      <!-- Footer -->
+      <div class='footer'>
+        <p>This is an automated email, please do not reply to this message.</p>
+        <p>
+          If you need assistance, contact us at
+          <a href='mailto:support@yourdomain.com'>support@yourdomain.com</a>
+        </p>
+      </div>
+    </div>
+  </body>
+</html>
