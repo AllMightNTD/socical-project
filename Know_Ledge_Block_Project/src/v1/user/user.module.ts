@@ -1,24 +1,28 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { JwtModule } from '@nestjs/jwt';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { GroupMember } from '../entities/group_member.entity';
 import { Profile } from '../entities/profile.entity';
-import { RefreshToken } from '../entities/refresh_tokens.entity';
+import { RefreshToken } from '../entities/refresh_token.entity';
 import { User } from '../entities/user.entity';
+import { UserSettings } from '../entities/user_settings.entity';
+import { UserStats } from '../entities/user_stats.entity';
+import { Conversation } from '../entities/conversation.entity';
+import { ConversationParticipant } from '../entities/conversation_participant.entity';
 import { UserController } from './user.controller';
 import { UserService } from './user.service';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, RefreshToken, Profile]),
-    JwtModule.registerAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        secret: config.get<string>('JWT_SECRET') || 'hard-to-guess-secret',
-        signOptions: { expiresIn: '1h' },
-      }),
-    }),
+    TypeOrmModule.forFeature([
+      User,
+      Profile,
+      UserSettings,
+      UserStats,
+      RefreshToken,
+      GroupMember,
+      Conversation,
+      ConversationParticipant,
+    ]),
   ],
   controllers: [UserController],
   providers: [UserService],

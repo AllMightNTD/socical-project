@@ -6,7 +6,6 @@ import {
   JoinColumn,
   ManyToOne,
   PrimaryGeneratedColumn,
-  UpdateDateColumn,
 } from 'typeorm';
 import { User } from './user.entity';
 
@@ -15,16 +14,10 @@ export class RefreshToken extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'uuid', unique: false })
+  @Column({ type: 'varchar' })
   user_id: string;
 
-  @ManyToOne(() => User, (user) => user.refresh_tokens, {
-    onDelete: 'CASCADE',
-  })
-  @JoinColumn({ name: 'user_id' })
-  user: User;
-
-  @Column({ type: 'varchar', length: 500 })
+  @Column({ type: 'varchar', length: 500, unique: true })
   token_hash: string;
 
   @Column({ type: 'datetime' })
@@ -36,12 +29,15 @@ export class RefreshToken extends BaseEntity {
   @Column({ type: 'varchar', length: 255, nullable: true })
   device_info: string;
 
-  @Column({ type: 'varchar', length: 255, nullable: true })
+  @Column({ type: 'varchar', length: 45, nullable: true })
   ip_address: string;
 
-  @CreateDateColumn({ type: 'timestamp' })
+  @CreateDateColumn()
   created_at: Date;
 
-  @UpdateDateColumn({ type: 'timestamp' })
-  updated_at: Date;
+  // ---- Relations ----
+
+  @ManyToOne(() => User, (user) => user.refresh_tokens, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'user_id' })
+  user: User;
 }

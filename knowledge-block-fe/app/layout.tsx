@@ -8,6 +8,8 @@ const quicksand = Quicksand({
   display: "swap", // SEO cực tốt vì giúp text hiển thị ngay lập tức
 });
 
+import { SocketProvider } from "@/components/providers/SocketProvider";
+
 export default function RootLayout({
   children,
 }: {
@@ -15,7 +17,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="vi" className={quicksand.className}>
-      <body>{children}</body>
+      <body>
+        <SocketProvider>
+          {children}
+        </SocketProvider>
+      </body>
     </html>
   );
 }

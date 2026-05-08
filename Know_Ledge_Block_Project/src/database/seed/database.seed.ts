@@ -4,11 +4,13 @@ import { SeedService } from './seed.service';
 
 async function bootstrap() {
   const app = await NestFactory.createApplicationContext(AppModule);
+  
   const seedService = app.get(SeedService);
-
-  await seedService.run();
+  await seedService.seedAll();
 
   await app.close();
+  console.log('Seed application finished.');
+  process.exit(0);
 }
 
 bootstrap();

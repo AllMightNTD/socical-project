@@ -10,7 +10,7 @@ import { UserRole } from './user_role.entity';
 
 
 @Entity('roles')
-export class Role extends BaseEntity{
+export class Role extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -19,6 +19,8 @@ export class Role extends BaseEntity{
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   description: string;
+
+  // ---- Relations ----
 
   @OneToMany(() => UserRole, (ur) => ur.role)
   user_roles: UserRole[];

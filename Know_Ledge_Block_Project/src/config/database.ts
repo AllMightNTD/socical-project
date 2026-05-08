@@ -16,7 +16,7 @@ const config = {
   synchronize: false,
   retryAttempts: 5,
   retryDelay: 3000,
-  entities: ['dist/v1/**/*.entity{.ts,.js}'],
+  entities: [__dirname + '/../**/*.entity{.ts,.js}'],
   migrations: [__dirname + '/../database/migrations/**/*{.ts,.js}'],
   logging: false,
 };

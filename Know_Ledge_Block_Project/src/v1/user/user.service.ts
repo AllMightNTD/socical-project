@@ -1,444 +1,267 @@
-import {
-  BadRequestException,
-  Injectable,
-  NotFoundException,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectRepository } from '@nestjs/typeorm';
 import * as bcrypt from 'bcrypt';
-import { randomBytes } from 'crypto';
 import { BaseService } from 'src/base/base.service';
-import { UserStatus } from 'src/constants/user-status';
-import { hashToken } from 'src/helper/hash-token';
-import { successResponse } from 'src/helper/response.helper';
-import { MailService } from 'src/mail/services';
-import { RefreshToken } from 'src/v1/entities/refresh_tokens.entity';
-import { User } from 'src/v1/entities/user.entity';
-import { DataSource, IsNull, QueryRunner, Repository } from 'typeorm';
+import { UserStatus } from 'src/constants/enums';
+import { DataSource, Repository } from 'typeorm';
+import { GroupMember } from '../entities/group_member.entity';
 import { Profile } from '../entities/profile.entity';
-import { CreateUserDto } from './dto/create-user.dto';
-import { LoginUserDto } from './dto/login-user.dto';
-import { ProfileDataDto } from './dto/profile-data.dto';
-import { RefreshTokenDto } from './dto/refresh-token.dto';
-import { UpdateNewPasswordDto } from './dto/update-new-password.dto';
+import { RefreshToken } from '../entities/refresh_token.entity';
+import { User } from '../entities/user.entity';
+import { UserPresence } from '../entities/user_presence.entity';
+import { UserSettings } from '../entities/user_settings.entity';
+import { UserStats } from '../entities/user_stats.entity';
+import { Conversation } from '../entities/conversation.entity';
+import { ConversationParticipant } from '../entities/conversation_participant.entity';
+import { ConversationType } from 'src/constants/enums';
+import { LoginDto, RegisterDto } from './dto/auth.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { UpdateSettingsDto } from './dto/update-settings.dto';
 
 @Injectable()
 export class UserService extends BaseService {
   protected filterableColumns: any;
+
   constructor(
     @InjectRepository(User)
-    private readonly userRepo: Repository<User>,
-    private readonly jwtService: JwtService,
-    @InjectRepository(Profile)
-    private readonly profileRepo: Repository<Profile>,
+    private readonly userRepository: Repository<User>,
     @InjectRepository(RefreshToken)
-    private readonly refreshTokenRepo: Repository<RefreshToken>,
-    private dataSource: DataSource,
-    private readonly mailService: MailService,
+    private readonly refreshTokenRepository: Repository<RefreshToken>,
+    private readonly dataSource: DataSource,
+    private readonly jwtService: JwtService,
+    @InjectRepository(GroupMember)
+    private readonly groupMemberRepository: Repository<GroupMember>,
+    @InjectRepository(Conversation)
+    private readonly conversationRepo: Repository<Conversation>,
+    @InjectRepository(ConversationParticipant)
+    private readonly participantRepo: Repository<ConversationParticipant>,
   ) {
-    super(userRepo);
+    super(userRepository);
   }
 
-  async register(createUserDto: CreateUserDto) {
-    const { email, password } = createUserDto;
+  async register(registerDto: RegisterDto) {
+    const { email, password, full_name, username, phone } = registerDto;
 
+    const existingUser = await this.userRepository.findOne({ where: [{ email }, { phone }] });
+    if (existingUser) {
+      throw new BadRequestException('Email or phone already exists');
+    }
+
+    const existingProfile = await this.dataSource.getRepository(Profile).findOne({ where: { username } });
+    if (existingProfile) {
+      throw new BadRequestException('Username is already taken');
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
     const queryRunner = this.dataSource.createQueryRunner();
+
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
-      const existing = await queryRunner.manager.findOne(User, {
-        where: { email },
-      });
-      if (existing) {
-        throw new BadRequestException('Email already exists');
-      }
-
-      // Hash mật khẩu
-      const hashedPassword = await bcrypt.hash(password, 10);
-
+      // 1. Create User
       const user = queryRunner.manager.create(User, {
-        ...createUserDto,
+        email,
+        phone,
         password: hashedPassword,
-        status: UserStatus.INACTIVE,
+        status: UserStatus.ACTIVE,
       });
-
-      const saved = await queryRunner.manager.save(User, user);
-
-      delete saved.password;
-
-      await this.mailService.queueRegisterMail({
-        email: user.email,
-      });
-
-      await queryRunner.commitTransaction();
-
-      return successResponse(saved);
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
-      throw error;
-    } finally {
-      await queryRunner.release();
-    }
-  }
-
-  async login(
-    data: LoginUserDto,
-    clientInfo: {
-      ip: string;
-      userAgent: string;
-    },
-  ) {
-    const { email, password } = data;
-
-    const user = await this.userRepo.findOne({
-      where: { email },
-      relations: ['user_roles.role.role_permissions.permission'],
-      select: ['id', 'email', 'password', 'status'],
-    });
-
-    if (!user) {
-      throw new BadRequestException('User not found');
-    }
-
-    if (user.status !== UserStatus.ACTIVE) {
-      throw new BadRequestException('User is not active');
-    }
-
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-
-    if (!isPasswordValid) {
-      throw new BadRequestException('Invalid credentials');
-    }
-
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
-    try {
-      /** Revoke all refresh token in userAgent */
-      await queryRunner.manager.update(
-        RefreshToken,
-        {
-          user_id: user.id,
-          device_info: clientInfo.userAgent,
-          revoked_at: IsNull(),
-        },
-        {
-          revoked_at: new Date(),
-        },
-      );
-
-      /**Create and generate access_token and refresh_token */
-      const { access_token, refresh_token } = await this.createAndGenNewToken(
-        queryRunner,
-        user,
-        clientInfo,
-      );
-
-      /** Update last_login_at */
-      user.last_login_at = new Date();
-
       await queryRunner.manager.save(user);
 
-      await queryRunner.commitTransaction();
-
-      return { access_token, refresh_token };
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
-      throw error;
-    } finally {
-      await queryRunner.release();
-    }
-  }
-
-  async refreshToken(
-    data: RefreshTokenDto,
-    clientInfo: { ip: string; userAgent: string },
-  ) {
-    const payload = await this.jwtService.verifyAsync(data.refresh_token);
-
-    if (!payload) {
-      throw new BadRequestException('Invalid refresh token');
-    }
-
-    const tokenHash = hashToken(data.refresh_token);
-
-    const rt = await this.refreshTokenRepo.findOne({
-      where: {
-        token_hash: tokenHash,
-        revoked_at: IsNull(),
-      },
-    });
-
-    /**Check expires token */
-    if (!rt || rt.expires_at < new Date()) {
-      throw new UnauthorizedException('Refresh token expired');
-    }
-
-    const user = await this.userRepo.findOne({
-      where: {
-        id: payload.sub,
-      },
-      relations: ['user_roles.role.role_permissions.permission'],
-    });
-
-    /** Check user active */
-    if (!user || user.status !== UserStatus.ACTIVE) {
-      throw new UnauthorizedException();
-    }
-
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-
-    try {
-      /** Revoke refresh token */
-      await queryRunner.manager.update(RefreshToken, rt.id, {
-        revoked_at: new Date(),
-      });
-
-      const { access_token, refresh_token } = await this.createAndGenNewToken(
-        queryRunner,
-        user,
-        clientInfo,
-      );
-
-      await queryRunner.commitTransaction();
-
-      return { access_token, refresh_token };
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
-      throw error;
-    } finally {
-      await queryRunner.release();
-    }
-  }
-
-  async createAndGenNewToken(
-    queryRunner: QueryRunner,
-    user: User,
-    clientInfo: { ip: string; userAgent: string },
-  ) {
-    const { access_token, refresh_token } = this.generateToken(user);
-
-    await queryRunner.manager.save(
-      queryRunner.manager.create(RefreshToken, {
+      // 2. Create Profile
+      const profile = queryRunner.manager.create(Profile, {
         user_id: user.id,
-        token_hash: hashToken(refresh_token),
-        ip_address: clientInfo.ip,
-        device_info: clientInfo.userAgent,
-        expires_at: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-      }),
-    );
+        full_name,
+        username,
+      });
+      await queryRunner.manager.save(profile);
 
-    return { access_token, refresh_token };
-  }
+      // 3. Create Settings
+      const settings = queryRunner.manager.create(UserSettings, {
+        user_id: user.id,
+      });
+      await queryRunner.manager.save(settings);
 
-  generateToken(user: User) {
-    const accessToken = this.jwtService.sign(
-      {
-        userId: user.id,
-        email: user.email,
-        user_roles: user.user_roles,
-      },
-      { expiresIn: '15m' },
-    );
+      // 4. Create Stats
+      const stats = queryRunner.manager.create(UserStats, {
+        user_id: user.id,
+      });
+      await queryRunner.manager.save(stats);
 
-    const newRefreshToken = this.jwtService.sign(
-      { sub: user.id, email: user.email },
-      { expiresIn: '7d' },
-    );
+      // 5. Create Presence
+      const presence = queryRunner.manager.create(UserPresence, {
+        user_id: user.id,
+        last_seen_at: new Date(),
+      });
+      await queryRunner.manager.save(presence);
 
-    return {
-      access_token: accessToken,
-      refresh_token: newRefreshToken,
-    };
-  }
+      await queryRunner.commitTransaction();
 
-  async search(id: number): Promise<User> {
-    const user = await this.userRepo
-      .createQueryBuilder('user')
-      .select([
-        'user.id',
-        'user.first_name',
-        'user.last_name',
-        'user.email',
-        'user.phone',
-        'user.avatar',
-        'user.status',
-        'user.role',
-      ])
-      .where('user.id = :id', { id })
-      .getOne();
-
-    if (!user) {
-      throw new BadRequestException('User not found');
+      // Return user without password
+      delete user.password;
+      return user;
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
     }
-
-    return user;
   }
 
-  async updateUser(id: number, updateUserDto: CreateUserDto): Promise<User> {
-    const user = await this.search(id);
+  async login(loginDto: LoginDto) {
+    const { emailOrPhone, password } = loginDto;
 
-    Object.assign(user, updateUserDto);
-
-    return this.userRepo.save(user);
-  }
-
-  async getMe(userId: string) {
-    const user = await this.userRepo.findOne({
-      where: { id: userId },
-      relations: [
-        'profile',
-        'user_roles',
-        'user_roles.role',
-        'user_roles.role.role_permissions',
-        'user_roles.role.role_permissions.permission',
+    const user = await this.userRepository.findOne({
+      where: [
+        { email: emailOrPhone },
+        { phone: emailOrPhone },
+      ],
+      select: [
+        'id',
+        'email',
+        'phone',
+        'password',
+        'status',
       ],
     });
 
     if (!user) {
-      throw new BadRequestException('User not found');
+      throw new UnauthorizedException('Invalid credentials');
     }
 
-    return successResponse(this.formatDataUser(user));
-  }
+    const isPasswordValid = await bcrypt.compare(
+      password,
+      user.password,
+    );
 
-  formatDataUser(user: User) {
-    if (!user) {
-      return null;
+    if (!isPasswordValid) {
+      throw new UnauthorizedException('Invalid credentials');
     }
+
+    if (user.status !== UserStatus.ACTIVE) {
+      throw new UnauthorizedException(
+        'User account is not active',
+      );
+    }
+
+    const payload = {
+      sub: user.id,
+      email: user.email,
+    };
+
+    const accessToken = this.jwtService.sign(payload);
+
+    const refreshTokenString = this.jwtService.sign(payload, {
+      expiresIn: '7d',
+    });
+
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + 7);
+
+    const refreshTokenHash = await bcrypt.hash(
+      refreshTokenString,
+      10,
+    );
+
+    const refreshToken =
+      this.refreshTokenRepository.create({
+        user_id: user.id,
+        token_hash: refreshTokenHash,
+        expires_at: expiresAt,
+        device_info: 'Unknown Device',
+        ip_address: '127.0.0.1',
+      });
+
+    await this.refreshTokenRepository.save(refreshToken);
+
+    delete user.password;
 
     return {
-      id: user.id,
-      email: user.email,
-      status: user.status,
-      profile: user.profile,
-      user_roles: user.user_roles.map((ur) => ({
-        role: {
-          id: ur.role.id,
-          name: ur.role.name,
-          permissions: ur.role.role_permissions.map((rp) => ({
-            code: rp.permission.code,
-          })),
-        },
-      })),
+      user,
+      accessToken,
+      refreshToken: refreshTokenString,
     };
   }
 
-  /**Reset password */
-  async requestPasswordReset(email: string) {
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
+  async getMe(userId: string) {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+      relations: ['profile', 'settings', 'stats', 'user_roles', 'user_roles.role', 'user_roles.role.role_permissions', 'user_roles.role.role_permissions.permission'],
+    });
 
-    try {
-      const user = await queryRunner.manager.findOne(User, {
-        where: { email: email, status: UserStatus.ACTIVE },
-        select: ['id', 'email', 'status'],
-        relations: ['profile'],
-      });
-      if (!user) {
-        throw new NotFoundException('User not found');
-      }
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
 
-      const resetToken = randomBytes(32).toString('hex');
-      const resetExpire = new Date(Date.now() + 60 * 60 * 1000);
-      user.reset_token = resetToken;
-      user.reset_token_expires_at = resetExpire;
+    delete user.password;
+    return user;
+  }
 
-      await queryRunner.manager.save(user);
+  async updateProfile(userId: string, updateProfileDto: UpdateProfileDto) {
+    const profileRepo = this.dataSource.getRepository(Profile);
+    const profile = await profileRepo.findOne({ where: { user_id: userId } });
+    if (!profile) {
+      throw new BadRequestException('Profile not found');
+    }
 
-      await this.mailService.enqueueResetPasswordMail({
-        email: user.email,
-        resetToken,
-        name: user.profile.full_name,
-        resetExpire: resetExpire,
-      });
+    Object.assign(profile, updateProfileDto);
+    return profileRepo.save(profile);
+  }
 
-      await queryRunner.commitTransaction();
+  async updateSettings(userId: string, updateSettingsDto: UpdateSettingsDto) {
+    const settingsRepo = this.dataSource.getRepository(UserSettings);
+    const settings = await settingsRepo.findOne({ where: { user_id: userId } });
+    if (!settings) {
+      throw new BadRequestException('Settings not found');
+    }
 
-      return { message: 'Email reset password send successfully' };
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
-      throw error;
-    } finally {
-      await queryRunner.release();
+    Object.assign(settings, updateSettingsDto);
+    return settingsRepo.save(settings);
+  }
+
+  async getListGroup(userId: string) {
+    const groups = await this.groupMemberRepository.find({
+      where: { user_id: userId },
+      relations: ['group', 'group.creator'],
+    });
+
+    if (!groups) {
+      throw new BadRequestException('Group not found');
+    }
+
+    return {
+      data: groups
     }
   }
 
-  async updateNewPassword(data: UpdateNewPasswordDto, reset_token: string) {
-    const queryRunner = this.dataSource.createQueryRunner();
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
-    try {
-      const user = await queryRunner.manager.findOne(User, {
-        where: { reset_token: reset_token },
-        select: ['id', 'reset_token_expires_at', 'reset_token', 'password'],
-      });
+  async getOrCreateConversation(userId: string, friendId: string) {
+    // 1. Tìm conversation private đã tồn tại giữa 2 người
+    const existingConversation = await this.conversationRepo
+      .createQueryBuilder('c')
+      .innerJoin('c.participants', 'p1', 'p1.user_id = :userId', { userId })
+      .innerJoin('c.participants', 'p2', 'p2.user_id = :friendId', { friendId })
+      .where('c.type = :type', { type: ConversationType.PRIVATE })
+      .getOne();
 
-      if (!user) {
-        return new NotFoundException('User not found with reset token');
-      }
-
-      if (user.reset_token_expires_at < new Date()) {
-        throw new UnauthorizedException('Reset password token is expired');
-      }
-
-      const newPassword = await bcrypt.hash(data.new_password, 10);
-      user.password = newPassword;
-      user.reset_token = null;
-      user.reset_token_expires_at = null;
-      await queryRunner.manager.save(User, user);
-
-      await queryRunner.commitTransaction();
-
-      return successResponse([], 'Update new password successfully');
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
-      throw error;
-    } finally {
-      await queryRunner.release();
+    if (existingConversation) {
+      return { conversation_id: existingConversation.id };
     }
-  }
 
-  /**
-   *
-   * @param profileData
-   * @param req
-   * @returns new profile data
-   */
-  async updateProfile(profileData: ProfileDataDto, req: { user: User }) {
-    const queryRunner = this.dataSource.createQueryRunner();
+    // 2. Nếu chưa có, tạo mới
+    const newConversation = this.conversationRepo.create({
+      type: ConversationType.PRIVATE,
+      created_by: userId,
+    });
+    const savedConversation = await this.conversationRepo.save(newConversation);
 
-    await queryRunner.connect();
-    await queryRunner.startTransaction();
+    // 3. Thêm 2 participants
+    await this.participantRepo.save([
+      { conversation_id: savedConversation.id, user_id: userId },
+      { conversation_id: savedConversation.id, user_id: friendId },
+    ]);
 
-    try {
-      const { full_name, avatar_url, bio, timezone, language } = profileData;
-      const user = req.user;
-      const profile = await this.profileRepo.findOneBy({ user_id: user.id });
-      Object.assign(profile, {
-        full_name,
-        avatar_url,
-        bio,
-        timezone,
-        language,
-      });
-
-      await queryRunner.manager.save(Profile, profile);
-
-      await queryRunner.commitTransaction();
-
-      return successResponse(profile, 'Update info user successfully');
-    } catch (error) {
-      await queryRunner.rollbackTransaction();
-      throw error;
-    } finally {
-      await queryRunner.release();
-    }
+    return { conversation_id: savedConversation.id };
   }
 }
+

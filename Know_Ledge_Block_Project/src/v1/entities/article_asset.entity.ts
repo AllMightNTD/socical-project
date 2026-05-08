@@ -1,12 +1,13 @@
 import {
-    BaseEntity,
-    Column,
-    CreateDateColumn,
-    Entity,
-    JoinColumn,
-    ManyToOne,
-    PrimaryGeneratedColumn,
+  BaseEntity,
+  Column,
+  CreateDateColumn,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+  PrimaryGeneratedColumn,
 } from 'typeorm';
+import { ArticleAssetType } from 'src/constants/enums';
 import { Article } from './article.entity';
 
 @Entity('article_assets')
@@ -14,22 +15,24 @@ export class ArticleAsset extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column('uuid')
+  @Column({ type: 'varchar' })
   article_id: string;
 
-  @ManyToOne(() => Article, (a) => a.assets, { onDelete: 'CASCADE' })
-  @JoinColumn({ name: 'article_id' })
-  article: Article;
-
-  @Column()
+  @Column({ type: 'varchar', length: 1000 })
   file_url: string;
 
-  @Column()
-  file_type: string;
+  @Column({ type: 'enum', enum: ArticleAssetType })
+  file_type: ArticleAssetType;
 
-  @Column()
-  size: number;
+  @Column({ type: 'int', nullable: true })
+  size_bytes: number;
 
   @CreateDateColumn()
   created_at: Date;
+
+  // ---- Relations ----
+
+  @ManyToOne(() => Article, (article) => article.assets, { onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'article_id' })
+  article: Article;
 }

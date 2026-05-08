@@ -21,9 +21,10 @@ interface PostProps {
     comments: number;
     shares: number;
   };
+  onProfileClick?: () => void;
 }
 
-export default function PostCard({ post }: PostProps) {
+export default function PostCard({ post, onProfileClick }: PostProps) {
   const [liked, setLiked] = useState(false);
   const [saved, setSaved] = useState(false);
   const [likeCount, setLikeCount] = useState(post.likes);
@@ -104,7 +105,10 @@ export default function PostCard({ post }: PostProps) {
               <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-400 rounded-full border-2 border-white" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-slate-800 hover:text-blue-600 cursor-pointer transition-colors">
+              <p 
+                className="text-sm font-semibold text-slate-800 hover:text-blue-600 cursor-pointer transition-colors"
+                onClick={onProfileClick}
+              >
                 {post.user.name}
               </p>
               <p className="text-xs text-slate-400">{post.time}</p>

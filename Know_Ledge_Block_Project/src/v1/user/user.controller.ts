@@ -4,96 +4,63 @@ import {
   Get,
   Param,
   Post,
-  Put,
-  Query,
   Request,
   UseGuards,
 } from '@nestjs/common';
 import { I18n, I18nLang, I18nService } from 'nestjs-i18n';
-import { BaseController } from 'src/base/base.controller';
-import { Permissions } from 'src/decorator/permissions.decorator';
-import { ClientInfo } from 'src/helper/client-info';
-import { User } from 'src/v1/entities/user.entity';
-import { AuthGuard } from 'src/v1/guards/auth.guard';
-import { PermissionGuard } from 'src/v1/guards/permission.guard';
-import { CreateUserDto } from './dto/create-user.dto';
-import { LoginUserDto } from './dto/login-user.dto';
-import { ProfileDataDto } from './dto/profile-data.dto';
-import { RefreshTokenDto } from './dto/refresh-token.dto';
-import { RequestPasswordResetDto } from './dto/request-reset-password.dto';
-import { UpdateNewPasswordDto } from './dto/update-new-password.dto';
+import { AuthGuard } from '../guards/auth.guard';
+import { LoginDto, RegisterDto } from './dto/auth.dto';
+import { UpdateProfileDto } from './dto/update-profile.dto';
+import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { UserService } from './user.service';
 
-@Controller()
-export class UserController extends BaseController<User> {
-  constructor(private readonly userService: UserService) {
-    super(userService);
-  }
+@Controller('')
+export class UserController {
+  constructor(private readonly userService: UserService) { }
 
   @Get('/hello')
   getHello(@I18nLang() lang: string, @I18n() i18n: I18nService) {
     return i18n.t('common.GREETING', { lang });
   }
 
-  @UseGuards(AuthGuard, PermissionGuard)
-  @Permissions('article.publish')
-  @Get('/get-me')
-  getProfile(@Request() req: any) {
-    return this.userService.getMe(req.user.userId);
+  @Post('/auth/register')
+  async register(@Body() registerDto: RegisterDto) {
+    return this.userService.register(registerDto);
+  }
+
+  @Post('/auth/login')
+  async login(@Body() loginDto: LoginDto) {
+    return this.userService.login(loginDto);
   }
 
   @UseGuards(AuthGuard)
-  @Get(':id')
-  public findOne(@Param('id') id: number) {
-    return this.userService.search(id);
+  @Get('/me')
+  async getMe(@Request() req) {
+    // req.user is set by AuthGuard
+    return this.userService.getMe(req.user.sub);
   }
 
-  @Post('/register')
-  async register(@Body() createUserDto: CreateUserDto) {
-    return this.userService.register(createUserDto);
+  @UseGuards(AuthGuard)
+  @Post('/profile') // Use POST or PUT based on preference, PUT is better but POST works
+  async updateProfile(@Request() req, @Body() updateProfileDto: UpdateProfileDto) {
+    return this.userService.updateProfile(req.user.sub, updateProfileDto);
   }
 
-  @Post('/login')
-  async login(@Body() loginDto: LoginUserDto, @ClientInfo() clientInfo: any) {
-    return this.userService.login(loginDto, clientInfo);
+  @UseGuards(AuthGuard)
+  @Post('/settings')
+  async updateSettings(@Request() req, @Body() updateSettingsDto: UpdateSettingsDto) {
+    return this.userService.updateSettings(req.user.sub, updateSettingsDto);
   }
 
-  @Post('/refresh')
-  async refresh(
-    @Body() refreshDto: RefreshTokenDto,
-    @ClientInfo() clientInfo: any,
-  ) {
-    return this.userService.refreshToken(refreshDto, clientInfo);
+  @UseGuards(AuthGuard)
+  @Get('/groups')
+  async getListGroup(@Request() req) {
+    return this.userService.getListGroup(req.user.sub);
   }
 
-  @UseGuards(AuthGuard, PermissionGuard)
-  @Permissions('article.publish')
-  @Put('/update-profile')
-  async updateProfile(
-    @Body() profileData: ProfileDataDto,
-    @Request() req: any,
-  ) {
-    return this.userService.updateProfile(profileData, req);
-  }
-
-  @Put(':id')
-  async updateUser(
-    @Param('id') id: number,
-    @Body() updateUserDto: CreateUserDto,
-  ) {
-    return this.userService.updateUser(id, updateUserDto);
-  }
-
-  @Post('/reset-password')
-  async resetPassword(@Body() resetPasswordDto: RequestPasswordResetDto) {
-    return this.userService.requestPasswordReset(resetPasswordDto.email);
-  }
-
-  @Post('/update-new-password')
-  async updateNewPassword(
-    @Body() updatePassword: UpdateNewPasswordDto,
-    @Query('reset_token') reset_token: string,
-  ) {
-    return this.userService.updateNewPassword(updatePassword, reset_token);
+  @UseGuards(AuthGuard)
+  @Get('/chat/conversation/:friendId')
+  async getOrCreateConversation(@Request() req, @Param('friendId') friendId: string) {
+    return this.userService.getOrCreateConversation(req.user.sub, friendId);
   }
 }

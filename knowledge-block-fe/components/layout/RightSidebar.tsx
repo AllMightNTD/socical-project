@@ -1,6 +1,58 @@
 "use client";
-import { contacts, groups, pages } from "@/lib/mockData";
+import { pages } from "@/lib/mockData";
+import { getRightSidebarData } from "@/lib/right-sidebar-api";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "../../lib/utils";
+import ChatBox from "../chat/ChatBox";
+
+// Types for friend API response
+interface FriendProfile {
+  id: string;
+  user_id: string;
+  full_name: string;
+  username: string;
+  avatar_url: string | null;
+  bio: string | null;
+}
+
+interface FriendUser {
+  id: string;
+  email: string;
+  status: string;
+  profile: FriendProfile | null;
+}
+
+interface FriendItem {
+  user_id: string;
+  friend_id: string;
+  list_type: string;
+  created_at: string;
+  friend_user: FriendUser;
+}
+
+// Types for group API response
+interface GroupData {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  avatar_url: string | null;
+  cover_url: string | null;
+  privacy: string;
+  type: string;
+  member_count: number;
+  post_count: number;
+  created_by: string;
+}
+
+interface GroupMemberItem {
+  group_id: string;
+  user_id: string;
+  role: string;
+  status: string;
+  joined_at: string;
+  group: GroupData;
+}
 
 function Avatar({
   src,
@@ -50,125 +102,208 @@ function StatusDot({ online, away }: { online?: boolean; away?: boolean }) {
   );
 }
 
-export default function RightSidebar() {
+export default function RightSidebar({ currentUser }: { currentUser?: any }) {
+  const [activeChat, setActiveChat] = useState<{ id: string; name: string; avatar: string } | null>(null);
+  const [friends, setFriends] = useState<FriendItem[]>([]);
+  const [loadingFriends, setLoadingFriends] = useState(true);
+  const [userGroups, setUserGroups] = useState<GroupMemberItem[]>([]);
+  const [loadingGroups, setLoadingGroups] = useState(true);
+
+  const fetchedRef = useRef(false);
+
+  useEffect(() => {
+    if (fetchedRef.current) return;
+
+    fetchedRef.current = true;
+
+    let cancelled = false;
+
+    const fetchData = async () => {
+      try {
+        const data = await getRightSidebarData();
+        setFriends(data.friends);
+        setLoadingFriends(false)
+        setLoadingGroups(false)
+        setUserGroups(data.groups);
+      } catch (error) {
+        console.error("Failed to fetch sidebar data:", error);
+        setLoadingFriends(true)
+        setLoadingGroups(false)
+      }
+    };
+
+    fetchData();
+  }, []);
+
   return (
-    <aside className="hidden xl:flex flex-col w-64 flex-shrink-0 sticky top-14 h-[calc(100vh-3.5rem)] pt-4 pb-6 overflow-y-auto">
-      {/* Contacts */}
-      <div className="px-4 mb-4">
-        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
-          Contacts
-        </p>
-        <div className="space-y-0.5">
-          {contacts.map((c) => (
-            <button
-              key={c.id}
-              className="w-full flex items-center justify-between px-2 py-2 rounded-xl hover:bg-slate-50 transition-colors group"
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="relative">
-                  <Avatar src={c.avatar} alt={c.name} />
-                  <StatusDot online={c.online} away={c.away} />
-                </div>
-                <span className="text-sm font-medium text-slate-700 group-hover:text-slate-900">
-                  {c.name}
-                </span>
+    <>
+      <aside className="hidden xl:flex flex-col w-64 flex-shrink-0 sticky top-14 h-[calc(100vh-3.5rem)] pt-4 pb-6 overflow-y-auto">
+        {/* Contacts (Friends from API) */}
+        <div className="px-4 mb-4">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+            Contacts
+          </p>
+          <div className="space-y-0.5">
+            {loadingFriends ? (
+              <div className="flex flex-col gap-2">
+                {[...Array(5)].map((_, i) => (
+                  <div key={i} className="flex items-center gap-2.5 px-2 py-2 animate-pulse">
+                    <div className="w-9 h-9 rounded-full bg-slate-200" />
+                    <div className="h-3 w-24 bg-slate-200 rounded" />
+                  </div>
+                ))}
               </div>
-              <div className="flex items-center gap-1">
-                {c.unread ? (
-                  <span className="bg-blue-500 text-white text-xs font-bold w-5 h-5 rounded-full flex items-center justify-center">
-                    {c.unread}
+            ) : friends.length === 0 ? (
+              <p className="text-xs text-slate-400 px-2">No friends yet</p>
+            ) : (
+              friends.map((f) => {
+                const profile = f.friend_user?.profile;
+                const displayName = profile?.full_name || f.friend_user?.email || "Unknown";
+                const avatarUrl = profile?.avatar_url || undefined;
+
+                return (
+                  <button
+                    key={f.friend_id}
+                    onClick={() => setActiveChat({ id: f.friend_id, name: displayName, avatar: avatarUrl || "" })}
+                    className="w-full flex items-center justify-between px-2 py-2 rounded-xl hover:bg-slate-50 transition-colors group"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="relative">
+                        <Avatar
+                          src={avatarUrl}
+                          alt={displayName}
+                          fallback={displayName.charAt(0).toUpperCase()}
+                        />
+                        <StatusDot online={f.friend_user?.status === "active"} />
+                      </div>
+                      <span className="text-sm font-medium text-slate-700 group-hover:text-slate-900 truncate max-w-[120px]">
+                        {displayName}
+                      </span>
+                    </div>
+                    {f.friend_user?.status === "active" && (
+                      <span className="w-2 h-2 rounded-full bg-green-400" />
+                    )}
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        <div className="mx-4 border-t border-slate-100 my-2" />
+
+        {/* Groups */}
+        <div className="px-4 mb-4">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+            Groups
+          </p>
+          <div className="space-y-0.5">
+            {loadingGroups ? (
+              <div className="flex flex-col gap-2">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="flex items-center gap-2.5 px-2 py-2 animate-pulse">
+                    <div className="w-9 h-9 rounded-full bg-slate-200" />
+                    <div className="h-3 w-20 bg-slate-200 rounded" />
+                  </div>
+                ))}
+              </div>
+            ) : userGroups.length === 0 ? (
+              <p className="text-xs text-slate-400 px-2">No groups yet</p>
+            ) : (
+              userGroups.map((gm) => {
+                const g = gm.group;
+                const groupName = g?.name || "Unknown Group";
+                const initials = groupName.substring(0, 2).toUpperCase();
+                // Generate a deterministic color from group id
+                const colors = ["bg-blue-500", "bg-purple-500", "bg-emerald-500", "bg-orange-500", "bg-pink-500", "bg-cyan-500", "bg-indigo-500", "bg-rose-500"];
+                const colorIndex = g?.id ? g.id.charCodeAt(0) % colors.length : 0;
+
+                return (
+                  <button
+                    key={gm.group_id}
+                    className="w-full flex items-center justify-between px-2 py-2 rounded-xl hover:bg-slate-50 transition-colors group"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <div className="relative">
+                        {g?.avatar_url ? (
+                          <img
+                            src={g.avatar_url}
+                            alt={groupName}
+                            className="w-9 h-9 rounded-full object-cover flex-shrink-0"
+                          />
+                        ) : (
+                          <div
+                            className={cn(
+                              "w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0",
+                              colors[colorIndex],
+                            )}
+                          >
+                            {initials}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex flex-col items-start">
+                        <span className="text-sm font-medium text-slate-700 group-hover:text-slate-900 truncate max-w-[120px]">
+                          {groupName}
+                        </span>
+                        <span className="text-[10px] text-slate-400 capitalize">
+                          {g?.privacy} · {gm.role}
+                        </span>
+                      </div>
+                    </div>
+                    <span className="text-[10px] text-slate-400">
+                      {g?.member_count || 0} members
+                    </span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+        </div>
+
+        <div className="mx-4 border-t border-slate-100 my-2" />
+
+        {/* Pages */}
+        <div className="px-4">
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
+            Pages
+          </p>
+          <div className="space-y-0.5">
+            {pages.map((p) => (
+              <button
+                key={p.id}
+                className="w-full flex items-center justify-between px-2 py-2 rounded-xl hover:bg-slate-50 transition-colors group"
+              >
+                <div className="flex items-center gap-2.5">
+                  <div className="relative">
+                    <div
+                      className={cn(
+                        "w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0",
+                        p.color,
+                      )}
+                    >
+                      {p.avatar}
+                    </div>
+                    <StatusDot online={p.online} />
+                  </div>
+                  <span className="text-sm font-medium text-slate-700 group-hover:text-slate-900">
+                    {p.name}
                   </span>
-                ) : c.time ? (
-                  <span className="text-xs text-slate-400">{c.time}</span>
-                ) : c.online ? (
-                  <span className="w-2 h-2 rounded-full bg-green-400" />
-                ) : null}
-              </div>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="mx-4 border-t border-slate-100 my-2" />
-
-      {/* Groups */}
-      <div className="px-4 mb-4">
-        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
-          Groups
-        </p>
-        <div className="space-y-0.5">
-          {groups.map((g) => (
-            <button
-              key={g.id}
-              className="w-full flex items-center justify-between px-2 py-2 rounded-xl hover:bg-slate-50 transition-colors group"
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="relative">
-                  <div
-                    className={cn(
-                      "w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0",
-                      g.color,
-                    )}
-                  >
-                    {g.avatar}
-                  </div>
-                  <StatusDot online={g.online} away={g.away} />
                 </div>
-                <span className="text-sm font-medium text-slate-700 group-hover:text-slate-900">
-                  {g.name}
-                </span>
-              </div>
-              <div>
-                {g.time ? (
-                  <span className="text-xs text-slate-400">{g.time}</span>
-                ) : g.online ? (
-                  <span
-                    className={cn(
-                      "w-2 h-2 rounded-full",
-                      g.away ? "bg-yellow-400" : "bg-green-400",
-                    )}
-                  />
-                ) : null}
-              </div>
-            </button>
-          ))}
+                <span className="w-2 h-2 rounded-full bg-green-400" />
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
+      </aside>
 
-      <div className="mx-4 border-t border-slate-100 my-2" />
-
-      {/* Pages */}
-      <div className="px-4">
-        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3">
-          Pages
-        </p>
-        <div className="space-y-0.5">
-          {pages.map((p) => (
-            <button
-              key={p.id}
-              className="w-full flex items-center justify-between px-2 py-2 rounded-xl hover:bg-slate-50 transition-colors group"
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="relative">
-                  <div
-                    className={cn(
-                      "w-9 h-9 rounded-full flex items-center justify-center text-white font-bold text-xs flex-shrink-0",
-                      p.color,
-                    )}
-                  >
-                    {p.avatar}
-                  </div>
-                  <StatusDot online={p.online} />
-                </div>
-                <span className="text-sm font-medium text-slate-700 group-hover:text-slate-900">
-                  {p.name}
-                </span>
-              </div>
-              <span className="w-2 h-2 rounded-full bg-green-400" />
-            </button>
-          ))}
-        </div>
-      </div>
-    </aside>
+      {activeChat && (
+        <ChatBox 
+          contact={activeChat} 
+          currentUser={currentUser} 
+          onClose={() => setActiveChat(null)} 
+        />
+      )}
+    </>
   );
 }

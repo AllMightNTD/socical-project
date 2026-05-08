@@ -1,14 +1,14 @@
 import {
-    BaseEntity,
-    Column,
-    Entity,
-    OneToMany,
-    PrimaryGeneratedColumn,
+  BaseEntity,
+  Column,
+  Entity,
+  OneToMany,
+  PrimaryGeneratedColumn,
 } from 'typeorm';
 import { RolePermission } from './role_permission.entity';
 
 @Entity('permissions')
-export class Permission extends BaseEntity{
+export class Permission extends BaseEntity {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
@@ -17,6 +17,8 @@ export class Permission extends BaseEntity{
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   description: string;
+
+  // ---- Relations ----
 
   @OneToMany(() => RolePermission, (rp) => rp.permission)
   role_permissions: RolePermission[];

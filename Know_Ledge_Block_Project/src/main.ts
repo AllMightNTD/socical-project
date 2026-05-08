@@ -20,7 +20,7 @@ async function bootstrap() {
   const url = `${protocol}://${host}:${port}/${prefix}`;
 
   app.enableCors({
-    origin: '*',
+    origin: true,
     credentials: true,
   });
 
@@ -48,7 +48,7 @@ async function bootstrap() {
   logEnvironmentVariables(configTest);
 
   await app
-    .listen(port)
+    .listen(port, '0.0.0.0')
     .then(() => console.warn(`WELCOME, YOUR API IS READY ON URL: ${url}`))
     .catch((err) => console.error(err, 'Application is crashed'));
 }

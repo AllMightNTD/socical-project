@@ -1,20 +1,16 @@
-import {
-  BaseEntity,
-  Entity,
-  JoinColumn,
-  ManyToOne,
-  PrimaryColumn
-} from 'typeorm';
-import { Role } from './roles.entity';
+import { BaseEntity, Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
 import { User } from './user.entity';
+import { Role } from './role.entity';
 
 @Entity('user_roles')
-export class UserRole extends BaseEntity{
-  @PrimaryColumn('uuid')
+export class UserRole extends BaseEntity {
+  @PrimaryColumn({ type: 'varchar' })
   user_id: string;
 
-  @PrimaryColumn('uuid')
+  @PrimaryColumn({ type: 'varchar' })
   role_id: string;
+
+  // ---- Relations ----
 
   @ManyToOne(() => User, (user) => user.user_roles, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'user_id' })

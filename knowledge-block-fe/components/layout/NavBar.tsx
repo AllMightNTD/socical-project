@@ -1,5 +1,5 @@
 "use client";
-import { currentUser } from "@/lib/mockData";
+import { currentUser, contacts } from "@/lib/mockData";
 import {
   Bell,
   Home,
@@ -12,7 +12,7 @@ import {
   Video,
   Zap,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { cn } from "../../lib/utils";
 
 interface NavbarProps {
@@ -30,6 +30,18 @@ export default function Navbar({
 }: NavbarProps) {
   const [searchFocused, setSearchFocused] = useState(false);
   const [activeTab, setActiveTab] = useState("home");
+  const [isMessagesOpen, setIsMessagesOpen] = useState(false);
+  const messagesRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (messagesRef.current && !messagesRef.current.contains(event.target as Node)) {
+        setIsMessagesOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const tabs = [
     { id: "home", icon: Home },
@@ -108,9 +120,57 @@ export default function Navbar({
           <Bell size={18} />
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
         </button>
-        <button className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-all">
-          <MessageCircle size={18} />
-        </button>
+        <div className="relative" ref={messagesRef}>
+          <button 
+            onClick={() => setIsMessagesOpen(!isMessagesOpen)}
+            className={cn(
+              "w-9 h-9 rounded-xl flex items-center justify-center transition-all",
+              isMessagesOpen ? "bg-blue-50 text-blue-500" : "text-slate-500 hover:bg-slate-50 hover:text-slate-700"
+            )}
+          >
+            <MessageCircle size={18} />
+          </button>
+
+          {isMessagesOpen && (
+            <div className="fixed sm:absolute top-[60px] sm:top-12 left-4 right-4 sm:left-auto sm:-right-2 sm:w-[320px] bg-white border border-slate-100 shadow-[0_10px_40px_rgba(0,0,0,0.12)] rounded-2xl z-50 flex flex-col overflow-hidden max-h-[85vh] sm:max-h-auto">
+              <div className="p-4 border-b border-slate-100">
+                <h3 className="font-bold text-slate-800">Messages</h3>
+              </div>
+              <div className="max-h-[400px] overflow-y-auto">
+                {contacts.map((contact) => (
+                  <button 
+                    key={contact.id} 
+                    className="w-full flex items-center gap-3 p-3 hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0"
+                  >
+                    <div className="relative shrink-0">
+                      <img src={contact.avatar} alt={contact.name} className="w-10 h-10 rounded-full object-cover" />
+                      {contact.online && (
+                        <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-400 border-2 border-white rounded-full"></span>
+                      )}
+                    </div>
+                    <div className="flex-1 text-left min-w-0">
+                      <div className="flex justify-between items-baseline mb-0.5">
+                        <span className="text-sm font-bold text-slate-800 truncate">{contact.name}</span>
+                        <span className="text-[10px] text-slate-400 shrink-0 ml-2">{contact.time || "12:30 PM"}</span>
+                      </div>
+                      <p className="text-xs text-slate-500 truncate">
+                        {contact.unread ? <span className="font-semibold text-slate-800">New message...</span> : "Tap to open chat..."}
+                      </p>
+                    </div>
+                    {contact.unread && (
+                      <span className="w-2 h-2 bg-blue-500 rounded-full shrink-0"></span>
+                    )}
+                  </button>
+                ))}
+              </div>
+              <div className="p-3 border-t border-slate-100 text-center bg-slate-50/50 hover:bg-slate-50 transition-colors cursor-pointer">
+                <span className="text-xs font-bold text-blue-500">
+                  See all in Messenger
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
         <button
           onClick={onSettingsClick}
           className="w-9 h-9 rounded-xl flex items-center justify-center text-slate-500 hover:bg-slate-50 hover:text-slate-700 transition-all"
