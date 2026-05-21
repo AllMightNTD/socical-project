@@ -1,14 +1,14 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { BaseService } from 'src/base/base.service';
+import { Audience, ReactionTargetType, ReactionType } from 'src/constants/enums';
+import { DataSource, Repository } from 'typeorm';
+import { Friend } from '../entities/friend.entity';
 import { Post } from '../entities/post.entity';
 import { PostMedia } from '../entities/post_media.entity';
-import { Friend } from '../entities/friend.entity';
 import { Reaction } from '../entities/reaction.entity';
-import { Audience, ReactionType, ReactionTargetType } from 'src/constants/enums';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
-import { BaseService } from 'src/base/base.service';
 import { PostGateway } from './post.gateway';
 
 @Injectable()
@@ -66,7 +66,7 @@ export class PostService extends BaseService {
 
       // Return complete post with relations
       const completePost = await this.getPostById(savedPost.id);
-      
+
       // Đính kèm reaction stats/user reaction rỗng cho bài viết mới
       const [attachedPost] = await this.attachReactionsToPosts([completePost], userId);
 
@@ -156,43 +156,47 @@ export class PostService extends BaseService {
     );
   }
 
-  async getFeedPosts(userId: string): Promise<any[]> {
-    // 1. Lấy danh sách bạn bè của user hiện tại
+  async getFeedPosts(userId: string, page: number = 1, limit: number = 10): Promise<any> {
+    const skip = (page - 1) * limit;
+
     const friendRecords = await this.dataSource.getRepository(Friend).find({
       where: { user_id: userId },
       select: ['friend_id'],
     });
     const friendIds = friendRecords.map((f) => f.friend_id);
 
-    // 2. Query Builder để lọc bài viết bảo mật
     const query = this.postRepository.createQueryBuilder('post')
       .leftJoinAndSelect('post.user', 'user')
       .leftJoinAndSelect('user.profile', 'profile')
       .leftJoinAndSelect('post.media', 'media')
-      .orderBy('post.created_at', 'DESC');
+      .orderBy('post.created_at', 'DESC')
+      .skip(skip)
+      .take(limit);
 
     if (friendIds.length > 0) {
       query.where(
         'post.audience = :public OR post.user_id = :userId OR (post.audience = :friends AND post.user_id IN (:...friendIds))',
-        {
-          public: Audience.PUBLIC,
-          userId,
-          friends: Audience.FRIENDS,
-          friendIds,
-        },
+        { public: Audience.PUBLIC, userId, friends: Audience.FRIENDS, friendIds },
       );
     } else {
       query.where(
         'post.audience = :public OR post.user_id = :userId',
-        {
-          public: Audience.PUBLIC,
-          userId,
-        },
+        { public: Audience.PUBLIC, userId },
       );
     }
 
-    const posts = await query.getMany();
-    return this.attachReactionsToPosts(posts, userId);
+    const [posts, total] = await query.getManyAndCount();
+    const data = await this.attachReactionsToPosts(posts, userId);
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   async getProfilePosts(targetUserId: string, currentUserId: string): Promise<any[]> {
@@ -387,7 +391,7 @@ export class PostService extends BaseService {
 
       // Return complete post with relations
       const completePost = await this.getPostById(postId);
-      
+
       // Đính kèm reaction stats/user reaction
       const [attachedPost] = await this.attachReactionsToPosts([completePost], userId);
 

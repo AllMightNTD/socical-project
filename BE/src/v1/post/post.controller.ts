@@ -4,6 +4,7 @@ import {
   Get,
   Post,
   Put,
+  Query,
   Request,
   UseGuards,
   UseInterceptors,
@@ -54,8 +55,12 @@ export class PostController {
 
   @UseGuards(AuthGuard)
   @Get('/')
-  async getFeedPosts(@Request() req) {
-    return this.postService.getFeedPosts(req.user.sub);
+  async getFeedPosts(
+    @Request() req,
+    @Query('page') page = '1',
+    @Query('limit') limit = '10',
+  ) {
+    return this.postService.getFeedPosts(req.user.sub, Number(page), Number(limit));
   }
 
   @UseGuards(AuthGuard)

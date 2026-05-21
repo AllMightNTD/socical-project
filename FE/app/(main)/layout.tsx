@@ -1,5 +1,7 @@
 // src/app/(main)/layout.tsx
 "use client";
+import MiniChatContainer from "@/components/chat/MiniChatContainer";
+import { MiniChatProvider } from "@/components/chat/MiniChatContext";
 import CreatePost from "@/components/feed/CreatePost";
 import FriendRequests from "@/components/feed/FriendRequest";
 import Notifications from "@/components/feed/Notification";
@@ -11,21 +13,18 @@ import Navbar from "@/components/layout/NavBar";
 import RightSidebar from "@/components/layout/RightSidebar";
 import SettingsModal from "@/components/layout/SettingsModal";
 import PersonalPage from "@/components/profile/PersonalPage";
-import MiniChatContainer from "@/components/chat/MiniChatContainer";
-import { MiniChatProvider } from "@/components/chat/MiniChatContext";
+import { useSocket } from "@/components/providers/SocketProvider";
 import api from "@/lib/axios";
-import { posts } from "@/lib/mockData";
 import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
-import React, { useEffect, useState, useCallback } from "react";
-import { useSocket } from "@/components/providers/SocketProvider";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 
 const formatTimeAgo = (dateString: string) => {
   try {
     const date = new Date(dateString);
     const now = new Date();
     const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
-    
+
     if (seconds < 60) return "Vừa xong";
     const minutes = Math.floor(seconds / 60);
     if (minutes < 60) return `${minutes} phút trước`;
@@ -33,7 +32,7 @@ const formatTimeAgo = (dateString: string) => {
     if (hours < 24) return `${hours} giờ trước`;
     const days = Math.floor(hours / 24);
     if (days < 30) return `${days} ngày trước`;
-    
+
     return date.toLocaleDateString('vi-VN');
   } catch (e) {
     return "Vừa xong";
@@ -53,7 +52,7 @@ const mapBackendPostToFrontend = (bPost: any) => {
   const userProfile = bPost.user?.profile;
   const displayName = userProfile?.full_name || bPost.user?.email || "Người dùng ẩn danh";
   const avatarUrl = userProfile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${displayName}`;
-  
+
   return {
     id: bPost.id,
     user_id: bPost.user_id,
@@ -86,7 +85,11 @@ export default function MainLayout({
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [postsList, setPostsList] = useState<any[]>([]);
-
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
+  const loaderRef = useRef<HTMLDivElement>(null);
+  const LIMIT = 10;
   const [activeNav, setActiveNav] = useState("newsfeed");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeView, setActiveView] = useState("feed"); // "feed", "notifications", "account", "profile"
@@ -150,20 +153,59 @@ export default function MainLayout({
     };
   }, [socket]);
 
+  // Fetch lần đầu hoặc refresh (reset về page 1)
   const fetchFeedPosts = useCallback(async () => {
     try {
-      const res = await api.get('/api/v1/post');
-      const backendPosts = res.data?.metadata || res.data || [];
-      const formattedBackendPosts = backendPosts.map(mapBackendPostToFrontend);
-      
-      // Kết hợp posts động từ backend (ở trên cùng) và posts tĩnh làm fallback
-      setPostsList([...formattedBackendPosts, ...posts]);
+      const res = await api.get('/api/v1/post', { params: { page: 1, limit: LIMIT } });
+      const raw = res.data?.data || res.data?.metadata || res.data || [];
+      const total = res.data?.meta?.total ?? raw.length;
+
+      setPostsList(raw.map(mapBackendPostToFrontend));
+      setPage(1);
+      setHasMore(raw.length < total);
     } catch (error) {
       console.error("Failed to fetch posts:", error);
-      // Nếu API lỗi, dùng mock posts hoàn toàn
-      setPostsList(posts);
     }
   }, []);
+
+  // Fetch thêm khi scroll xuống
+  const fetchMorePosts = useCallback(async () => {
+    if (isFetchingMore || !hasMore) return;
+    setIsFetchingMore(true);
+    try {
+      const nextPage = page + 1;
+      const res = await api.get('/api/v1/post', { params: { page: nextPage, limit: LIMIT } });
+      const raw = res.data?.data || res.data?.metadata || res.data || [];
+      const total = res.data?.meta?.total ?? 0;
+
+      setPostsList((prev) => {
+        const existingIds = new Set(prev.map((p) => p.id));
+        const newPosts = raw
+          .map(mapBackendPostToFrontend)
+          .filter((p: any) => !existingIds.has(p.id));
+        return [...prev, ...newPosts];
+      });
+      setPage(nextPage);
+      setHasMore(postsList.length + raw.length < total);
+    } catch (error) {
+      console.error("Failed to fetch more posts:", error);
+    } finally {
+      setIsFetchingMore(false);
+    }
+  }, [isFetchingMore, hasMore, page, postsList.length]);
+
+  // IntersectionObserver theo dõi loader div
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) fetchMorePosts();
+      },
+      { threshold: 0.1 }
+    );
+    const el = loaderRef.current;
+    if (el) observer.observe(el);
+    return () => { if (el) observer.unobserve(el); };
+  }, [fetchMorePosts]);
 
   useEffect(() => {
     const fetchMe = async () => {
@@ -171,7 +213,7 @@ export default function MainLayout({
         // Gọi getMe endpoint
         const res = await api.get('/api/v1/user/me');
         setCurrentUser(res.data?.metadata || res.data);
-        
+
         // Fetch posts sau khi login thành công
         await fetchFeedPosts();
       } catch (error) {
@@ -221,89 +263,105 @@ export default function MainLayout({
 
   return (
     <MiniChatProvider>
-    <div className="min-h-screen bg-slate-50 font-sans">
-      <Navbar
-        onMenuToggle={() => setMobileMenuOpen(true)}
-        onBellClick={handleBellClick}
-        onSettingsClick={() => setIsSettingsOpen(true)}
-        isNotificationsActive={activeView === "notifications"}
-      />
-
-      <SettingsModal
-        isOpen={isSettingsOpen}
-        onClose={() => setIsSettingsOpen(false)}
-        onViewChange={setActiveView}
-      />
-
-      <div className="flex pt-14 max-w-[1400px] mx-auto">
-        {/* Left Sidebar */}
-        <LeftSidebar
-          activeNav={activeNav}
-          onNavChange={handleNavChange}
-          mobileOpen={mobileMenuOpen}
-          onMobileClose={() => setMobileMenuOpen(false)}
+      <div className="min-h-screen bg-slate-50 font-sans">
+        <Navbar
+          onMenuToggle={() => setMobileMenuOpen(true)}
+          onBellClick={handleBellClick}
+          onSettingsClick={() => setIsSettingsOpen(true)}
+          isNotificationsActive={activeView === "notifications"}
         />
 
-        {/* Main content */}
-        <main className="flex-1 flex gap-4 px-3 md:px-4 py-4 min-w-0">
-          {activeView === "profile" ? (
-            <div className="flex-1 min-w-0 mx-auto xl:mx-0 space-y-4">
-              <PersonalPage user={profileUser || currentUser} currentUser={currentUser} />
-            </div>
-          ) : (
-            <>
-              {/* Feed column */}
-              <div className="flex-1 min-w-0 max-w-2xl mx-auto xl:mx-0 space-y-4">
-                {activeView === "notifications" ? (
-                  <Notifications />
-                ) : activeView === "account" ? (
-                  <Account onBack={() => setActiveView("feed")} />
-                ) : (
-                  <>
-                    {/* Stories */}
-                    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
-                      <Stories />
-                    </div>
+        <SettingsModal
+          isOpen={isSettingsOpen}
+          onClose={() => setIsSettingsOpen(false)}
+          onViewChange={setActiveView}
+        />
 
-                    {/* Create Post */}
-                    <CreatePost currentUser={currentUser} onPostCreated={fetchFeedPosts} />
+        <div className="flex pt-14 max-w-[1400px] mx-auto">
+          {/* Left Sidebar */}
+          <LeftSidebar
+            activeNav={activeNav}
+            onNavChange={handleNavChange}
+            mobileOpen={mobileMenuOpen}
+            onMobileClose={() => setMobileMenuOpen(false)}
+          />
 
-                    {/* Posts */}
-                    {postsList.map((post) => (
-                      <PostCard key={post.id} post={post} currentUser={currentUser} onProfileClick={() => handleProfileClick(post.user)} />
-                    ))}
-
-                    {/* Load more */}
-                    <div className="flex justify-center py-4">
-                      <button className="text-sm text-slate-400 hover:text-blue-500 font-medium transition-colors flex items-center gap-2 group">
-                        <span className="w-4 h-0.5 bg-slate-200 group-hover:bg-blue-200 transition-colors rounded-full" />
-                        Load more posts
-                        <span className="w-4 h-0.5 bg-slate-200 group-hover:bg-blue-200 transition-colors rounded-full" />
-                      </button>
-                    </div>
-                  </>
-                )}
+          {/* Main content */}
+          <main className="flex-1 flex gap-4 px-3 md:px-4 py-4 min-w-0">
+            {activeView === "profile" ? (
+              <div className="flex-1 min-w-0 mx-auto xl:mx-0 space-y-4">
+                <PersonalPage user={profileUser || currentUser} currentUser={currentUser} />
               </div>
+            ) : (
+              <>
+                {/* Feed column */}
+                <div className="flex-1 min-w-0 max-w-2xl mx-auto xl:mx-0 space-y-4">
+                  {activeView === "notifications" ? (
+                    <Notifications />
+                  ) : activeView === "account" ? (
+                    <Account onBack={() => setActiveView("feed")} />
+                  ) : (
+                    <>
+                      {/* Stories */}
+                      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
+                        <Stories />
+                      </div>
 
-              {/* Friend Requests (center-right) */}
-              {activeView == "feed" && (
-                <aside className="hidden lg:block w-72 flex-shrink-0">
-                  <div className="sticky top-20">
-                    <FriendRequests />
-                  </div>
-                </aside>
-              )}
-            </>
-          )}
-        </main>
+                      {/* Create Post */}
+                      <CreatePost currentUser={currentUser} onPostCreated={fetchFeedPosts} />
 
-        {/* Right Sidebar */}
-        <RightSidebar currentUser={currentUser} />
+                      {/* Posts */}
+                      {postsList.map((post) => (
+                        <PostCard key={post.id} post={post} currentUser={currentUser} onProfileClick={() => handleProfileClick(post.user)} />
+                      ))}
+
+                      {/* Infinite scroll loader */}
+                      <div ref={loaderRef} className="flex justify-center py-6">
+                        {isFetchingMore && (
+                          <div className="flex items-center gap-2 text-slate-400">
+                            <svg className="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                            </svg>
+                            <span className="text-sm font-medium">Đang tải thêm bài viết...</span>
+                          </div>
+                        )}
+                        {!hasMore && postsList.length > 0 && (
+                          <p className="text-sm text-slate-400 font-medium">Bạn đã xem hết bài viết 🎉</p>
+                        )}
+                      </div>
+
+                      {/* Load more */}
+                      <div className="flex justify-center py-4">
+                        <button className="text-sm text-slate-400 hover:text-blue-500 font-medium transition-colors flex items-center gap-2 group">
+                          <span className="w-4 h-0.5 bg-slate-200 group-hover:bg-blue-200 transition-colors rounded-full" />
+                          Load more posts
+                          <span className="w-4 h-0.5 bg-slate-200 group-hover:bg-blue-200 transition-colors rounded-full" />
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {/* Friend Requests (center-right) */}
+                {activeView == "feed" && (
+                  <aside className="hidden lg:block w-72 flex-shrink-0">
+                    <div className="sticky top-20">
+                      <FriendRequests />
+                    </div>
+                  </aside>
+                )}
+              </>
+            )}
+          </main>
+
+          {/* Right Sidebar */}
+          <RightSidebar currentUser={currentUser} />
+        </div>
+
+        {/* Mini Chat Popups - fixed bottom right */}
+        <MiniChatContainer currentUser={currentUser} />
       </div>
-
-      {/* Mini Chat Popups - fixed bottom right */}
-      <MiniChatContainer currentUser={currentUser} />
-    </div>
     </MiniChatProvider>
   );
 }
