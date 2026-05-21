@@ -10,6 +10,8 @@ import {
 import { I18n, I18nLang, I18nService } from 'nestjs-i18n';
 import { AuthGuard } from '../guards/auth.guard';
 import { LoginDto, RegisterDto } from './dto/auth.dto';
+import { RequestPasswordResetDto } from './dto/request-reset-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { UserService } from './user.service';
@@ -31,6 +33,16 @@ export class UserController {
   @Post('/auth/login')
   async login(@Body() loginDto: LoginDto) {
     return this.userService.login(loginDto);
+  }
+
+  @Post('/auth/forgot-password')
+  async forgotPassword(@Body() requestPasswordResetDto: RequestPasswordResetDto) {
+    return this.userService.forgotPassword(requestPasswordResetDto);
+  }
+
+  @Post('/auth/reset-password')
+  async resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    return this.userService.resetPassword(resetPasswordDto);
   }
 
   @UseGuards(AuthGuard)
@@ -62,5 +74,11 @@ export class UserController {
   @Get('/chat/conversation/:friendId')
   async getOrCreateConversation(@Request() req, @Param('friendId') friendId: string) {
     return this.userService.getOrCreateConversation(req.user.sub, friendId);
+  }
+
+  @UseGuards(AuthGuard)
+  @Post('/auth/logout')
+  async logout(@Request() req) {
+    return this.userService.logout(req.user.sub);
   }
 }

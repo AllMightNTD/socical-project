@@ -7,10 +7,21 @@ import { ChatModule } from './chat/chat.module';
 import { FriendModule } from './friend/friend.module';
 import { JwtRefreshStrategy } from './strategy/jwt-refresh.strategy';
 import { UserModule } from './user/user.module';
+import { PostModule } from './post/post.module';
+import { CommentModule } from './comment/comment.module';
 
 @Global()
 @Module({
-  imports: [AppV1Route, AuthModule, ChatModule, UserModule, AdminModule, FriendModule],
+  imports: [
+    AppV1Route, 
+    AuthModule, 
+    ChatModule, 
+    UserModule, 
+    AdminModule, 
+    FriendModule, 
+    PostModule,
+    CommentModule
+  ],
 
   providers: [JwtService, JwtRefreshStrategy],
   exports: [JwtService],

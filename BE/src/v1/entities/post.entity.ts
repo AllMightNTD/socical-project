@@ -49,6 +49,9 @@ export class Post extends BaseEntity {
   feeling: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
+  post_background: string;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
   location_name: string;
 
   @Column({ type: 'decimal', precision: 10, scale: 8, nullable: true })

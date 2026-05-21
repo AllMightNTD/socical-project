@@ -38,7 +38,7 @@ export const SocketProvider = ({
     console.log("SOCKET TOKEN:", token);
 
     if (!token) {
-      console.error("No access token found");
+      console.log("SocketProvider: No access token found, skipping socket connection");
       return;
     }
 

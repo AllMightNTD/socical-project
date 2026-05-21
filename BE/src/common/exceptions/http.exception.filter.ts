@@ -39,7 +39,12 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         ? (rawResponse as any)?.error
         : 'Error';
 
-    // ✅ Generate requestId (nếu chưa có từ middleware)
+    // ✅ Propagate errorCode if present (used for field-level FE validation)
+    const errorCode =
+      typeof rawResponse === 'object'
+        ? (rawResponse as any)?.errorCode
+        : undefined;
+
     const requestId = request.headers['x-request-id'] || randomUUID();
 
     // 🚫 Ignore noise
@@ -77,6 +82,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       statusCode: status,
       timestamp: logPayload.timestamp,
       path: request.url,
+      ...(errorCode ? { errorCode } : {}),
       message:
         status >= 500
           ? 'Internal server error'

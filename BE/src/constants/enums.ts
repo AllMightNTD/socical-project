@@ -290,6 +290,7 @@ export enum MessageType {
   VOICE = 'voice',
   VIDEO_CALL_LOG = 'video_call_log',
   SYSTEM = 'system',
+  VIDEO = 'video',
 }
 
 // ============================================================

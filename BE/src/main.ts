@@ -4,6 +4,8 @@ import { NestFactory } from '@nestjs/core';
 import { SwaggerModule } from '@nestjs/swagger';
 import { ValidationError } from 'class-validator';
 import helmet from 'helmet';
+import * as express from 'express';
+import * as path from 'path';
 import { AppModule } from './app.module';
 import { GlobalExceptionFilter } from './common/exceptions/http.exception.filter';
 import { logEnvironmentVariables } from './config/env.config';
@@ -23,6 +25,8 @@ async function bootstrap() {
     origin: true,
     credentials: true,
   });
+
+  app.use('/uploads', express.static(path.join(__dirname, '..', 'public/uploads')));
 
   app.setGlobalPrefix(prefix);
   app.useGlobalFilters(new GlobalExceptionFilter());

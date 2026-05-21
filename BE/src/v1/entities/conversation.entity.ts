@@ -34,6 +34,9 @@ export class Conversation extends BaseEntity {
   @Column({ type: 'varchar', length: 20, nullable: true })
   emoji: string;
 
+  @Column({ type: 'varchar', length: 500, nullable: true })
+  background_image: string;
+
   @Column({ type: 'varchar', nullable: true })
   last_message_id: string;
 

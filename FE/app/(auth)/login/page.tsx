@@ -1,13 +1,18 @@
 "use client";
 import api from "@/lib/axios";
-import Cookies from "js-cookie";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Lock, Mail, Zap } from "lucide-react";
+import Cookies from "js-cookie";
+import { AnimatePresence, motion } from "framer-motion";
+import { AlertCircle, Lock, Mail, Zap } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+
+import { useToast } from "@/components/ui/toast";
+
+const REMEMBER_EMAIL_KEY = "sociala_remembered_email";
 
 const loginSchema = z.object({
   emailOrPhone: z.string().min(1, "Email không được để trống").email("Định dạng email không hợp lệ"),
@@ -16,39 +21,88 @@ const loginSchema = z.object({
 
 type LoginFormValues = z.infer<typeof loginSchema>;
 
+interface FieldErrors {
+  email?: string;
+  password?: string;
+}
+
 export default function LoginPage() {
   const router = useRouter();
-  const [loginError, setLoginError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  const [rememberMe, setRememberMe] = useState(false);
+  const { error: toastError, success: toastSuccess } = useToast();
 
   const {
     register,
     handleSubmit,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
   });
 
+  // Pre-fill email from localStorage if user had remember me enabled
+  useEffect(() => {
+    const savedEmail = localStorage.getItem(REMEMBER_EMAIL_KEY);
+    if (savedEmail) {
+      setValue("emailOrPhone", savedEmail);
+      setRememberMe(true);
+    }
+  }, [setValue]);
+
+  const clearFieldError = (field: keyof FieldErrors) => {
+    setFieldErrors((prev) => ({ ...prev, [field]: undefined }));
+  };
+
   const onSubmit = async (data: LoginFormValues) => {
+    setFieldErrors({});
     try {
-      setLoginError("");
-      const response = await api.post("/api/v1/user/auth/login", data);
+      const response = await api.post("/api/v1/user/auth/login", {
+        ...data,
+        rememberMe,
+      });
 
       const token = response.data?.metadata?.accessToken || response.data?.accessToken;
+      const cookieExpireDays = response.data?.cookieExpireDays ?? 1;
+
       if (token) {
-        Cookies.set("accessToken", token, { expires: 7 }); // Lưu cookie 7 ngày
+        Cookies.set("accessToken", token, { expires: cookieExpireDays });
       }
 
+      // Save or clear remembered email based on rememberMe choice
+      if (rememberMe) {
+        localStorage.setItem(REMEMBER_EMAIL_KEY, data.emailOrPhone);
+      } else {
+        localStorage.removeItem(REMEMBER_EMAIL_KEY);
+      }
+
+      toastSuccess("Đăng nhập thành công! Đang chuyển hướng...");
       router.push("/");
     } catch (error: any) {
-      setLoginError(error.response?.data?.message || "Đăng nhập thất bại. Vui lòng thử lại.");
+      const errorCode = error.response?.data?.errorCode;
+      const message = error.response?.data?.message;
+
+      if (errorCode === "EMAIL_NOT_FOUND") {
+        setFieldErrors({ email: message || "Email không tồn tại" });
+      } else if (errorCode === "WRONG_PASSWORD") {
+        setFieldErrors({ password: message || "Sai mật khẩu" });
+      } else {
+        toastError(message || "Đăng nhập thất bại. Vui lòng thử lại.");
+      }
     }
   };
 
   const handleFacebookLogin = () => {
-    // Chuyển hướng tới endpoint OAuth của Backend
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3003';
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3003";
     window.location.href = `${backendUrl}/api/v1/auth/facebook`;
   };
+
+  const emailHasError = !!(errors.emailOrPhone || fieldErrors.email);
+  const passwordHasError = !!(errors.password || fieldErrors.password);
+
+  const inputBase = "w-full pl-12 pr-4 py-4 rounded-xl border outline-none transition-all duration-200 text-slate-600 placeholder:text-slate-400 focus:ring-1";
+  const inputNormal = "border-slate-200 focus:border-blue-500 focus:ring-blue-500";
+  const inputError = "border-red-400 ring-1 ring-red-300 focus:ring-red-400 bg-red-50/30";
 
   return (
     <div className="flex min-h-screen bg-white font-sans">
@@ -94,52 +148,159 @@ export default function LoginPage() {
           </h1>
 
           <form className="space-y-5" onSubmit={handleSubmit(onSubmit)}>
-            {loginError && (
-              <div className="p-3 text-sm text-red-500 bg-red-50 rounded-xl border border-red-200">
-                {loginError}
-              </div>
-            )}
 
             {/* Email Input */}
             <div className="space-y-1">
-              <div className="relative group">
-                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={20} />
+              <div className={`relative group transition-all duration-200 ${emailHasError ? "drop-shadow-[0_0_8px_rgba(239,68,68,0.18)]" : ""}`}>
+                <Mail
+                  className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors duration-200 ${
+                    emailHasError ? "text-red-400" : "text-slate-400 group-focus-within:text-blue-500"
+                  }`}
+                  size={20}
+                />
                 <input
+                  id="emailOrPhone"
                   type="email"
                   placeholder="Your Email Address"
-                  {...register("emailOrPhone")}
-                  className={`w-full pl-12 pr-4 py-4 rounded-xl border ${errors.emailOrPhone ? 'border-red-500 focus:ring-red-500' : 'border-slate-200 focus:border-blue-500 focus:ring-blue-500'} focus:ring-1 outline-none transition-all text-slate-600 placeholder:text-slate-400`}
+                  {...register("emailOrPhone", {
+                    onChange: () => clearFieldError("email"),
+                  })}
+                  className={`${inputBase} ${emailHasError ? inputError : inputNormal}`}
                 />
               </div>
-              {errors.emailOrPhone && (
-                <p className="text-red-500 text-sm ml-1">{errors.emailOrPhone.message}</p>
-              )}
+
+              <AnimatePresence mode="wait">
+                {errors.emailOrPhone && !fieldErrors.email && (
+                  <motion.p
+                    key="email-zod-error"
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.2, ease: "easeOut" }}
+                    className="text-red-500 text-sm ml-1 flex items-center gap-1 mt-1"
+                  >
+                    <AlertCircle size={13} className="flex-shrink-0" />
+                    {errors.emailOrPhone.message}
+                  </motion.p>
+                )}
+              </AnimatePresence>
+
+              <AnimatePresence mode="wait">
+                {fieldErrors.email && (
+                  <motion.p
+                    key="email-api-error"
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.2, ease: "easeOut" }}
+                    className="text-red-500 text-sm ml-1 flex items-center gap-1 mt-1"
+                  >
+                    <AlertCircle size={13} className="flex-shrink-0" />
+                    {fieldErrors.email}
+                  </motion.p>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* Password Input */}
             <div className="space-y-1">
-              <div className="relative group">
-                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-blue-500 transition-colors" size={20} />
+              <div className={`relative group transition-all duration-200 ${passwordHasError ? "drop-shadow-[0_0_8px_rgba(239,68,68,0.18)]" : ""}`}>
+                <Lock
+                  className={`absolute left-4 top-1/2 -translate-y-1/2 transition-colors duration-200 ${
+                    passwordHasError ? "text-red-400" : "text-slate-400 group-focus-within:text-blue-500"
+                  }`}
+                  size={20}
+                />
                 <input
+                  id="password"
                   type="password"
                   placeholder="Password"
-                  {...register("password")}
-                  className={`w-full pl-12 pr-4 py-4 rounded-xl border ${errors.password ? 'border-red-500 focus:ring-red-500' : 'border-slate-200 focus:border-blue-500 focus:ring-blue-500'} focus:ring-1 outline-none transition-all text-slate-600 placeholder:text-slate-400`}
+                  {...register("password", {
+                    onChange: () => clearFieldError("password"),
+                  })}
+                  className={`${inputBase} ${passwordHasError ? inputError : inputNormal}`}
                 />
               </div>
-              {errors.password && (
-                <p className="text-red-500 text-sm ml-1">{errors.password.message}</p>
-              )}
+
+              <AnimatePresence mode="wait">
+                {errors.password && !fieldErrors.password && (
+                  <motion.p
+                    key="password-zod-error"
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.2, ease: "easeOut" }}
+                    className="text-red-500 text-sm ml-1 flex items-center gap-1 mt-1"
+                  >
+                    <AlertCircle size={13} className="flex-shrink-0" />
+                    {errors.password.message}
+                  </motion.p>
+                )}
+              </AnimatePresence>
+
+              <AnimatePresence mode="wait">
+                {fieldErrors.password && (
+                  <motion.p
+                    key="password-api-error"
+                    initial={{ opacity: 0, y: -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.2, ease: "easeOut" }}
+                    className="text-red-500 text-sm ml-1 flex items-center gap-1 mt-1"
+                  >
+                    <AlertCircle size={13} className="flex-shrink-0" />
+                    {fieldErrors.password}
+                  </motion.p>
+                )}
+              </AnimatePresence>
             </div>
 
-            <div className="flex items-center justify-between py-2">
-              <label className="flex items-center gap-2 cursor-pointer group">
-                <input type="checkbox" className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500" />
-                <span className="text-sm font-semibold text-slate-400 group-hover:text-slate-600">
+            {/* Remember Me Toggle + Forgot Password */}
+            <div className="flex items-center justify-between py-1">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={rememberMe}
+                onClick={() => setRememberMe((v) => !v)}
+                className="flex items-center gap-2.5 group"
+              >
+                {/* Toggle track */}
+                <div
+                  className={`relative w-10 h-[22px] rounded-full transition-colors duration-300 ${
+                    rememberMe ? "bg-blue-500" : "bg-slate-200"
+                  }`}
+                >
+                  {/* Toggle thumb */}
+                  <motion.div
+                    animate={{ x: rememberMe ? 20 : 2 }}
+                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                    className="absolute top-[3px] w-4 h-4 bg-white rounded-full shadow-sm"
+                  />
+                </div>
+                <span
+                  className={`text-sm font-semibold transition-colors duration-200 ${
+                    rememberMe ? "text-blue-600" : "text-slate-400 group-hover:text-slate-600"
+                  }`}
+                >
                   Remember me
                 </span>
-              </label>
-              <Link href="/forgot-password" className="text-sm font-bold text-slate-600 hover:text-blue-600">
+                {/* Badge hiển thị thời hạn khi bật */}
+                <AnimatePresence>
+                  {rememberMe && (
+                    <motion.span
+                      initial={{ opacity: 0, scale: 0.8 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.8 }}
+                      transition={{ duration: 0.15 }}
+                      className="text-xs font-bold text-blue-500 bg-blue-50 border border-blue-100 rounded-full px-2 py-0.5"
+                    >
+                      30 ngày
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </button>
+
+              <Link href="/forgot-password" className="text-sm font-bold text-slate-600 hover:text-blue-600 transition-colors">
                 Forgot your Password?
               </Link>
             </div>
@@ -191,13 +352,13 @@ export default function LoginPage() {
                 <span className="flex-1 font-bold text-center">Sign in with Google</span>
               </button>
 
-              <button 
-                type="button" 
+              <button
+                type="button"
                 onClick={handleFacebookLogin}
                 className="w-full flex items-center px-4 py-1 rounded-lg bg-[#3b5999] text-white hover:bg-[#2d4373] transition-colors shadow-md"
               >
                 <div className="p-2 bg-white rounded-md flex items-center justify-center mr-4">
-                  <svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" className="text-[#3b5999]" aria-hidden="true">
+                  <svg width="18" height="18" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                     <path d="M22 12a10 10 0 10-11.5 9.9v-7h-2.3v-2.9h2.3V9.2c0-2.3 1.4-3.6 3.5-3.6 1 0 2 .08 2 .08v2.2h-1.1c-1.1 0-1.5.73-1.5 1.5v1.8h2.6l-.4 2.9h-2.2v7A10 10 0 0022 12z" fill="#3b5999" />
                   </svg>
                 </div>

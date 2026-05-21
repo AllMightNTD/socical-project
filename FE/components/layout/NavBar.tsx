@@ -1,5 +1,5 @@
 "use client";
-import { currentUser, contacts } from "@/lib/mockData";
+import { contacts, currentUser } from "@/lib/mockData";
 import {
   Bell,
   Home,
@@ -12,7 +12,7 @@ import {
   Video,
   Zap,
 } from "lucide-react";
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { cn } from "../../lib/utils";
 
 interface NavbarProps {
@@ -51,6 +51,10 @@ export default function Navbar({
     { id: "mail", icon: Mail },
   ];
 
+  const handleHomePage = () => {
+    window.location.href = "/";
+  };
+
   return (
     <header className="fixed top-0 left-0 right-0 h-14 bg-white border-b border-slate-100 z-30 flex items-center px-4 gap-3 shadow-sm">
       {/* Logo */}
@@ -61,7 +65,7 @@ export default function Navbar({
         >
           <Menu size={20} />
         </button>
-        <div className="flex items-center gap-1.5">
+        <div onClick={handleHomePage} className="flex items-center gap-1.5">
           <div className="w-7 h-7 bg-blue-500 rounded-lg flex items-center justify-center">
             <Zap size={14} className="text-white fill-white" />
           </div>
@@ -121,7 +125,7 @@ export default function Navbar({
           <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
         </button>
         <div className="relative" ref={messagesRef}>
-          <button 
+          <button
             onClick={() => setIsMessagesOpen(!isMessagesOpen)}
             className={cn(
               "w-9 h-9 rounded-xl flex items-center justify-center transition-all",
@@ -138,8 +142,8 @@ export default function Navbar({
               </div>
               <div className="max-h-[400px] overflow-y-auto">
                 {contacts.map((contact) => (
-                  <button 
-                    key={contact.id} 
+                  <button
+                    key={contact.id}
                     className="w-full flex items-center gap-3 p-3 hover:bg-slate-50 transition-colors border-b border-slate-50 last:border-0"
                   >
                     <div className="relative shrink-0">

@@ -10,6 +10,8 @@ const api = axios.create({
 const NO_AUTH_ENDPOINTS = [
   "/api/v1/user/auth/login",
   "/api/v1/user/auth/register",
+  "/api/v1/user/auth/forgot-password",
+  "/api/v1/user/auth/reset-password",
 ];
 
 // Request Interceptor
@@ -40,9 +42,17 @@ api.interceptors.response.use(
   (res) => res,
   async (err) => {
     const originalRequest = err.config;
-    // Tự động refresh token nếu gặp lỗi 401
-    if (err.response?.status === 401 && !originalRequest._retry) {
+    const isNoAuthEndpoint = NO_AUTH_ENDPOINTS.some((endpoint) =>
+      originalRequest?.url?.includes(endpoint)
+    );
+
+    // Tự động refresh token nếu gặp lỗi 401 và không phải là no-auth endpoint
+    if (err.response?.status === 401 && !isNoAuthEndpoint && !originalRequest._retry) {
       originalRequest._retry = true;
+      const token = Cookies.get("accessToken");
+      if (!token) {
+        return Promise.reject(err);
+      }
       try {
         await axios.post("/api/auth/refresh"); // Gọi đến bảng REFRESH_TOKENS (điều chỉnh endpoint nếu cần)
         return api(originalRequest);

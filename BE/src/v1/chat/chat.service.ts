@@ -120,7 +120,17 @@ export class ChatService implements OnModuleInit {
       { last_message_id: savedMessage.id }
     );
 
-    return savedMessage;
+    // Query full message with relations
+    return this.messageRepo.findOne({
+      where: { id: savedMessage.id },
+      relations: [
+        'sender',
+        'sender.profile',
+        'reply_to',
+        'reply_to.sender',
+        'reply_to.sender.profile',
+      ],
+    });
   }
 
   async incrementPostView(postId: string) {
@@ -181,7 +191,13 @@ export class ChatService implements OnModuleInit {
       order: { created_at: 'ASC' },
       skip: (page - 1) * limit,
       take: limit,
-      relations: ['sender', 'sender.profile'],
+      relations: [
+        'sender',
+        'sender.profile',
+        'reply_to',
+        'reply_to.sender',
+        'reply_to.sender.profile',
+      ],
     });
 
     return {
@@ -190,5 +206,38 @@ export class ChatService implements OnModuleInit {
       page,
       limit,
     };
+  }
+
+  async updateThemeColor(userId: string, conversationId: string, color: string) {
+    const isParticipant = await this.checkParticipant(userId, conversationId);
+    if (!isParticipant) return null;
+
+    await this.conversationRepo.update({ id: conversationId }, { theme_color: color });
+    return color;
+  }
+
+  async updateMainEmoji(userId: string, conversationId: string, emoji: string) {
+    const isParticipant = await this.checkParticipant(userId, conversationId);
+    if (!isParticipant) return null;
+
+    await this.conversationRepo.update({ id: conversationId }, { emoji: emoji });
+    return emoji;
+  }
+
+  async updateNickname(userId: string, conversationId: string, targetUserId: string, nickname: string) {
+    const isSenderParticipant = await this.checkParticipant(userId, conversationId);
+    const isTargetParticipant = await this.checkParticipant(targetUserId, conversationId);
+    if (!isSenderParticipant || !isTargetParticipant) return null;
+
+    await this.participantRepo.update({ conversation_id: conversationId, user_id: targetUserId }, { nickname: nickname || null });
+    return { targetUserId, nickname };
+  }
+
+  async updateBackgroundImage(userId: string, conversationId: string, bgUrl: string) {
+    const isParticipant = await this.checkParticipant(userId, conversationId);
+    if (!isParticipant) return null;
+
+    await this.conversationRepo.update({ id: conversationId }, { background_image: bgUrl || null });
+    return bgUrl;
   }
 }

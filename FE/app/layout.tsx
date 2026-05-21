@@ -9,6 +9,7 @@ const quicksand = Quicksand({
 });
 
 import { SocketProvider } from "@/components/providers/SocketProvider";
+import { ToastProvider } from "@/components/ui/toast";
 
 export default function RootLayout({
   children,
@@ -18,9 +19,11 @@ export default function RootLayout({
   return (
     <html lang="vi" className={quicksand.className}>
       <body>
-        <SocketProvider>
-          {children}
-        </SocketProvider>
+        <ToastProvider>
+          <SocketProvider>
+            {children}
+          </SocketProvider>
+        </ToastProvider>
       </body>
     </html>
   );

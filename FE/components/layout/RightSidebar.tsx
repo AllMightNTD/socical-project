@@ -298,10 +298,10 @@ export default function RightSidebar({ currentUser }: { currentUser?: any }) {
       </aside>
 
       {activeChat && (
-        <ChatBox 
-          contact={activeChat} 
-          currentUser={currentUser} 
-          onClose={() => setActiveChat(null)} 
+        <ChatBox
+          contact={activeChat}
+          currentUser={currentUser}
+          onClose={() => setActiveChat(null)}
         />
       )}
     </>

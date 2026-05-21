@@ -15,7 +15,64 @@ import api from "@/lib/axios";
 import { posts } from "@/lib/mockData";
 import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
+import { useSocket } from "@/components/providers/SocketProvider";
+
+const formatTimeAgo = (dateString: string) => {
+  try {
+    const date = new Date(dateString);
+    const now = new Date();
+    const seconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+    
+    if (seconds < 60) return "Vừa xong";
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes} phút trước`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} giờ trước`;
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `${days} ngày trước`;
+    
+    return date.toLocaleDateString('vi-VN');
+  } catch (e) {
+    return "Vừa xong";
+  }
+};
+
+const getMediaUrl = (url: string) => {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://")) {
+    return url;
+  }
+  const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3003";
+  return `${apiBase}${url.startsWith("/") ? "" : "/"}${url}`;
+};
+
+const mapBackendPostToFrontend = (bPost: any) => {
+  const userProfile = bPost.user?.profile;
+  const displayName = userProfile?.full_name || bPost.user?.email || "Người dùng ẩn danh";
+  const avatarUrl = userProfile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${displayName}`;
+  
+  return {
+    id: bPost.id,
+    user_id: bPost.user_id,
+    audience: bPost.audience,
+    user: {
+      name: displayName,
+      avatar: avatarUrl,
+    },
+    time: formatTimeAgo(bPost.created_at),
+    content: bPost.content || "",
+    images: bPost.media?.map((m: any) => getMediaUrl(m.file_url)) || [],
+    rawMedia: bPost.media || [],
+    likes: bPost.reaction_count || 0,
+    comments: bPost.comment_count || 0,
+    shares: bPost.share_count || 0,
+    feeling: bPost.feeling,
+    post_background: bPost.post_background,
+    reactionStats: bPost.reactionStats || {},
+    userReaction: bPost.userReaction || null,
+  };
+};
 
 export default function MainLayout({
   children,
@@ -23,8 +80,10 @@ export default function MainLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
+  const { socket } = useSocket();
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
+  const [postsList, setPostsList] = useState<any[]>([]);
 
   const [activeNav, setActiveNav] = useState("newsfeed");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -32,12 +91,87 @@ export default function MainLayout({
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [profileUser, setProfileUser] = useState<any>(null);
 
+  // Lắng nghe bài viết mới và reaction mới qua socket phát sóng
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleNewPost = (newPost: any) => {
+      console.log("[MainLayout] Realtime post received:", newPost);
+      const formatted = mapBackendPostToFrontend(newPost);
+      setPostsList((prev) => {
+        // Chống trùng lặp (double render) đối với bài đăng của chính mình
+        if (prev.some((p) => p.id === formatted.id)) return prev;
+        return [formatted, ...prev];
+      });
+    };
+
+    const handlePostReaction = (payload: any) => {
+      console.log("[MainLayout] Realtime reaction received:", payload);
+      setPostsList((prev) =>
+        prev.map((post) => {
+          if (post.id === payload.postId) {
+            return {
+              ...post,
+              likes: payload.reactionCount,
+              reactionStats: payload.stats,
+            };
+          }
+          return post;
+        })
+      );
+    };
+
+    const handlePostUpdated = (updatedPost: any) => {
+      console.log("[MainLayout] Realtime post updated received:", updatedPost);
+      const formatted = mapBackendPostToFrontend(updatedPost);
+      setPostsList((prev) =>
+        prev.map((post) => {
+          if (post.id === formatted.id) {
+            return {
+              ...formatted,
+              userReaction: post.userReaction, // giữ nguyên user reaction hiện tại của mình
+            };
+          }
+          return post;
+        })
+      );
+    };
+
+    socket.on("newPost", handleNewPost);
+    socket.on("postReaction", handlePostReaction);
+    socket.on("postUpdated", handlePostUpdated);
+
+    return () => {
+      socket.off("newPost", handleNewPost);
+      socket.off("postReaction", handlePostReaction);
+      socket.off("postUpdated", handlePostUpdated);
+    };
+  }, [socket]);
+
+  const fetchFeedPosts = useCallback(async () => {
+    try {
+      const res = await api.get('/api/v1/post');
+      const backendPosts = res.data?.metadata || res.data || [];
+      const formattedBackendPosts = backendPosts.map(mapBackendPostToFrontend);
+      
+      // Kết hợp posts động từ backend (ở trên cùng) và posts tĩnh làm fallback
+      setPostsList([...formattedBackendPosts, ...posts]);
+    } catch (error) {
+      console.error("Failed to fetch posts:", error);
+      // Nếu API lỗi, dùng mock posts hoàn toàn
+      setPostsList(posts);
+    }
+  }, []);
+
   useEffect(() => {
     const fetchMe = async () => {
       try {
         // Gọi getMe endpoint
         const res = await api.get('/api/v1/user/me');
         setCurrentUser(res.data?.metadata || res.data);
+        
+        // Fetch posts sau khi login thành công
+        await fetchFeedPosts();
       } catch (error) {
         Cookies.remove('accessToken');
         router.push('/login');
@@ -46,7 +180,7 @@ export default function MainLayout({
       }
     };
     fetchMe();
-  }, [router]);
+  }, [router, fetchFeedPosts]);
 
   const handleBellClick = () => {
     setActiveView(activeView === "notifications" ? "feed" : "notifications");
@@ -111,7 +245,7 @@ export default function MainLayout({
         <main className="flex-1 flex gap-4 px-3 md:px-4 py-4 min-w-0">
           {activeView === "profile" ? (
             <div className="flex-1 min-w-0 mx-auto xl:mx-0 space-y-4">
-              <PersonalPage user={profileUser} />
+              <PersonalPage user={profileUser || currentUser} currentUser={currentUser} />
             </div>
           ) : (
             <>
@@ -129,11 +263,11 @@ export default function MainLayout({
                     </div>
 
                     {/* Create Post */}
-                    <CreatePost />
+                    <CreatePost currentUser={currentUser} onPostCreated={fetchFeedPosts} />
 
                     {/* Posts */}
-                    {posts.map((post) => (
-                      <PostCard key={post.id} post={post} onProfileClick={() => handleProfileClick(post.user)} />
+                    {postsList.map((post) => (
+                      <PostCard key={post.id} post={post} currentUser={currentUser} onProfileClick={() => handleProfileClick(post.user)} />
                     ))}
 
                     {/* Load more */}

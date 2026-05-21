@@ -138,4 +138,104 @@ export class ChatGateway
     // 4. Có thể emit riêng messageSent cho người gửi nếu muốn
     client.emit('messageSent', savedMessage);
   }
+
+  @SubscribeMessage('deleteMessage')
+  async handleDeleteMessage(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { conversation_id: string; message_id: string },
+  ) {
+    const userId = client.data.user.id;
+    const deleted = await this.chatService.deleteMessage(userId, data.message_id);
+    if (deleted) {
+      this.server.to(`conversation_${data.conversation_id}`).emit('messageDeleted', {
+        message_id: data.message_id,
+        conversation_id: data.conversation_id,
+      });
+    } else {
+      client.emit('error', { message: 'Failed to delete message' });
+    }
+  }
+
+  @SubscribeMessage('seenMessage')
+  async handleSeenMessage(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { conversation_id: string; message_id: string },
+  ) {
+    const userId = client.data.user.id;
+    await this.chatService.markAsRead(userId, data.conversation_id, data.message_id);
+    this.server.to(`conversation_${data.conversation_id}`).emit('messageSeen', {
+      user_id: userId,
+      conversation_id: data.conversation_id,
+      message_id: data.message_id,
+    });
+  }
+
+  @SubscribeMessage('changeThemeColor')
+  async handleChangeThemeColor(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { conversation_id: string; theme_color: string },
+  ) {
+    const userId = client.data.user.id;
+    const color = await this.chatService.updateThemeColor(userId, data.conversation_id, data.theme_color);
+    if (color) {
+      this.server.to(`conversation_${data.conversation_id}`).emit('themeColorChanged', {
+        conversation_id: data.conversation_id,
+        theme_color: color,
+      });
+    } else {
+      client.emit('error', { message: 'Unauthorized or failed to update theme' });
+    }
+  }
+
+  @SubscribeMessage('changeMainEmoji')
+  async handleChangeMainEmoji(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { conversation_id: string; emoji: string },
+  ) {
+    const userId = client.data.user.id;
+    const emoji = await this.chatService.updateMainEmoji(userId, data.conversation_id, data.emoji);
+    if (emoji) {
+      this.server.to(`conversation_${data.conversation_id}`).emit('mainEmojiChanged', {
+        conversation_id: data.conversation_id,
+        emoji: emoji,
+      });
+    } else {
+      client.emit('error', { message: 'Unauthorized or failed to update emoji' });
+    }
+  }
+
+  @SubscribeMessage('changeNickname')
+  async handleChangeNickname(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { conversation_id: string; target_user_id: string; nickname: string },
+  ) {
+    const userId = client.data.user.id;
+    const res = await this.chatService.updateNickname(userId, data.conversation_id, data.target_user_id, data.nickname);
+    if (res) {
+      this.server.to(`conversation_${data.conversation_id}`).emit('nicknameChanged', {
+        conversation_id: data.conversation_id,
+        target_user_id: data.target_user_id,
+        nickname: data.nickname,
+      });
+    } else {
+      client.emit('error', { message: 'Unauthorized or failed to update nickname' });
+    }
+  }
+
+  @SubscribeMessage('changeBackgroundImage')
+  async handleChangeBackgroundImage(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { conversation_id: string; background_image: string },
+  ) {
+    const userId = client.data.user.id;
+    const bgUrl = await this.chatService.updateBackgroundImage(userId, data.conversation_id, data.background_image);
+    if (bgUrl !== null) {
+      this.server.to(`conversation_${data.conversation_id}`).emit('backgroundImageChanged', {
+        conversation_id: data.conversation_id,
+        background_image: bgUrl,
+      });
+    } else {
+      client.emit('error', { message: 'Unauthorized or failed to update background image' });
+    }
+  }
 }

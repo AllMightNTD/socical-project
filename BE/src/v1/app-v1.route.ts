@@ -5,6 +5,8 @@ import { AuthModule } from './auth/auth.module';
 import { ChatModule } from './chat/chat.module';
 import { FriendModule } from './friend/friend.module';
 import { UserModule } from './user/user.module';
+import { PostModule } from './post/post.module';
+import { CommentModule } from './comment/comment.module';
 
 const routes: Routes = [
   {
@@ -15,7 +17,9 @@ const routes: Routes = [
       { path: 'admin', module: AdminModule },
       { path: 'friend', module: FriendModule },
       { path: 'chat', module: ChatModule },
-    ],  
+      { path: 'post', module: PostModule },
+      { path: 'comment', module: CommentModule },
+    ],
   },
 ];
 

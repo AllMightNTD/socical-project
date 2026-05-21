@@ -18,6 +18,7 @@ const config = {
   retryDelay: 3000,
   entities: [__dirname + '/../**/*.entity{.ts,.js}'],
   migrations: [__dirname + '/../database/migrations/**/*{.ts,.js}'],
+  charset: 'utf8mb4',
   logging: false,
 };
 

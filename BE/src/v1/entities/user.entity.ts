@@ -52,6 +52,12 @@ export class User extends BaseEntity {
   @Column({ type: 'varchar', length: 255, unique: true, nullable: true })
   facebook_id: string;
 
+  @Column({ type: 'varchar', length: 255, unique: true, nullable: true })
+  reset_password_token: string;
+
+  @Column({ type: 'datetime', nullable: true })
+  reset_password_expires_at: Date;
+
   @Column({ type: 'enum', enum: UserStatus, default: UserStatus.INACTIVE })
   status: UserStatus;
 

@@ -26,6 +26,9 @@ export class ConversationParticipant extends BaseEntity {
   @Column({ type: 'varchar', nullable: true })
   last_read_message_id: string;
 
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  nickname: string;
+
   @Column({ type: 'boolean', default: false })
   is_muted: boolean;
 

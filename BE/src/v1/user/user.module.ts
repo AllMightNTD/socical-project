@@ -8,6 +8,7 @@ import { UserSettings } from '../entities/user_settings.entity';
 import { UserStats } from '../entities/user_stats.entity';
 import { Conversation } from '../entities/conversation.entity';
 import { ConversationParticipant } from '../entities/conversation_participant.entity';
+import { MailModule } from 'src/mail/mail.module';
 import { UserController } from './user.controller';
 import { UserService } from './user.service';
 
@@ -23,6 +24,7 @@ import { UserService } from './user.service';
       Conversation,
       ConversationParticipant,
     ]),
+    MailModule,
   ],
   controllers: [UserController],
   providers: [UserService],
