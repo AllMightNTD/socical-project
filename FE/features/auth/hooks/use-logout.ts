@@ -1,0 +1,30 @@
+import { useCallback, useState } from "react";
+import Cookies from "js-cookie";
+import { useRouter } from "next/navigation";
+import { useToast } from "@/core/providers/toast-provider";
+import { AuthService } from "../services/auth.service";
+
+const REMEMBER_EMAIL_KEY = "sociala_remembered_email";
+
+export function useLogout() {
+  const router = useRouter();
+  const { success: toastSuccess } = useToast();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const logout = useCallback(async () => {
+    setIsLoggingOut(true);
+    try {
+      await AuthService.logout();
+    } catch {
+      // Ignore network errors — always clear FE session
+    } finally {
+      Cookies.remove("accessToken");
+      localStorage.removeItem(REMEMBER_EMAIL_KEY);
+      toastSuccess("Đã đăng xuất thành công");
+      router.push("/login");
+      setIsLoggingOut(false);
+    }
+  }, [router, toastSuccess]);
+
+  return { logout, isLoggingOut };
+}

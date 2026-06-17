@@ -276,6 +276,13 @@ export const navItems = [
     bg: "bg-red-100",
   },
   {
+    id: "friends",
+    label: "Bạn bè",
+    icon: "Users",
+    color: "text-green-500",
+    bg: "bg-green-100",
+  },
+  {
     id: "profile",
     label: "Author Profile",
     icon: "User",

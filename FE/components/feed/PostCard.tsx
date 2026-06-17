@@ -96,7 +96,8 @@ export default function PostCard({ post, currentUser, onProfileClick }: PostProp
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleToggleReaction = async (type: string) => {
+  const handleToggleReaction = async (type: string | null) => {
+    if (!type) return;
     setIsPickerOpen(false);
     
     // Optimistic UI Update

@@ -119,18 +119,9 @@ export default function MiniChatWindow({
     socket.emit("joinConversation", { conversation_id: conversationId });
 
     const onNewMessage = (msg: ChatMessage) => {
+      if (msg.conversation_id !== conversationId) return;
       setMessages((prev) => {
         if (prev.find((m) => m.id === msg.id)) return prev;
-        if (msg.sender_id === currentUser?.id) {
-          const idx = prev.findIndex(
-            (m) => m.status === "sending" && m.content === msg.content
-          );
-          if (idx !== -1) {
-            const updated = [...prev];
-            updated[idx] = { ...msg, status: "sent" };
-            return updated;
-          }
-        }
         return [...prev, { ...msg, status: "sent" }];
       });
       // Send seen receipt
@@ -140,6 +131,24 @@ export default function MiniChatWindow({
           message_id: msg.id,
         });
       }
+    };
+
+    const onMessageSent = (msg: ChatMessage) => {
+      if (msg.conversation_id !== conversationId) return;
+      setMessages((prev) => {
+        // Dedup by ID
+        if (prev.find((m) => m.id === msg.id)) return prev;
+        // Replace optimistic message
+        const idx = prev.findIndex(
+          (m) => m.status === "sending" && m.content === msg.content
+        );
+        if (idx !== -1) {
+          const updated = [...prev];
+          updated[idx] = { ...msg, status: "sent" };
+          return updated;
+        }
+        return [...prev, { ...msg, status: "sent" }];
+      });
     };
 
     const onTypingStart = (data: { conversation_id: string; user_id: string }) => {
@@ -155,11 +164,13 @@ export default function MiniChatWindow({
     };
 
     socket.on("newMessage", onNewMessage);
+    socket.on("messageSent", onMessageSent);
     socket.on("user_typing_start", onTypingStart);
     socket.on("user_typing_stop", onTypingStop);
 
     return () => {
       socket.off("newMessage", onNewMessage);
+      socket.off("messageSent", onMessageSent);
       socket.off("user_typing_start", onTypingStart);
       socket.off("user_typing_stop", onTypingStop);
       if (isCurrentlyTypingRef.current && conversationId) {

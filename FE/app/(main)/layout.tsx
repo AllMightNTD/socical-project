@@ -18,6 +18,9 @@ import api from "@/lib/axios";
 import Cookies from "js-cookie";
 import { useRouter } from "next/navigation";
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { FriendRequestList } from "@/features/friends/components/FriendRequestList";
+import { FriendSuggestionsList } from "@/features/friends/components/FriendSuggestionsList";
+import { useToast } from "@/core/providers/toast-provider";
 
 const formatTimeAgo = (dateString: string) => {
   try {
@@ -82,6 +85,7 @@ export default function MainLayout({
 }) {
   const router = useRouter();
   const { socket } = useSocket();
+  const { success: toastSuccess, info: toastInfo } = useToast();
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [isLoadingUser, setIsLoadingUser] = useState(true);
   const [postsList, setPostsList] = useState<any[]>([]);
@@ -142,16 +146,67 @@ export default function MainLayout({
       );
     };
 
+    const handleNewNotification = (notification: any) => {
+      console.log("[MainLayout] Realtime notification received:", notification);
+      if (notification.type === "friend_request") {
+        toastSuccess("Bạn nhận được một lời mời kết bạn mới!");
+      } else if (notification.type === "friend_accept") {
+        toastSuccess("Một người dùng đã chấp nhận lời mời kết bạn của bạn!");
+      } else {
+        toastInfo("Bạn có một thông báo mới!");
+      }
+    };
+
+    const handleCommentCreated = (comment: any) => {
+      console.log("[MainLayout] Realtime comment created received:", comment);
+      if (comment.postId) {
+        setPostsList((prev) =>
+          prev.map((post) => {
+            if (post.id === comment.postId) {
+              return {
+                ...post,
+                comments: (post.comments || 0) + 1,
+              };
+            }
+            return post;
+          })
+        );
+      }
+    };
+
+    const handleCommentDeleted = (payload: any) => {
+      console.log("[MainLayout] Realtime comment deleted received:", payload);
+      if (payload.postId) {
+        setPostsList((prev) =>
+          prev.map((post) => {
+            if (post.id === payload.postId) {
+              return {
+                ...post,
+                comments: Math.max(0, (post.comments || 0) - 1),
+              };
+            }
+            return post;
+          })
+        );
+      }
+    };
+
     socket.on("newPost", handleNewPost);
     socket.on("postReaction", handlePostReaction);
     socket.on("postUpdated", handlePostUpdated);
+    socket.on("new_notification", handleNewNotification);
+    socket.on("commentCreated", handleCommentCreated);
+    socket.on("commentDeleted", handleCommentDeleted);
 
     return () => {
       socket.off("newPost", handleNewPost);
       socket.off("postReaction", handlePostReaction);
       socket.off("postUpdated", handlePostUpdated);
+      socket.off("new_notification", handleNewNotification);
+      socket.off("commentCreated", handleCommentCreated);
+      socket.off("commentDeleted", handleCommentDeleted);
     };
-  }, [socket]);
+  }, [socket, toastSuccess, toastInfo]);
 
   // Fetch lần đầu hoặc refresh (reset về page 1)
   const fetchFeedPosts = useCallback(async () => {
@@ -235,6 +290,8 @@ export default function MainLayout({
     if (id === "profile") {
       setProfileUser(null); // default to current user if clicked from sidebar
       setActiveView("profile");
+    } else if (id === "friends") {
+      setActiveView("friends");
     } else {
       setActiveView("feed");
     }
@@ -269,6 +326,7 @@ export default function MainLayout({
           onBellClick={handleBellClick}
           onSettingsClick={() => setIsSettingsOpen(true)}
           isNotificationsActive={activeView === "notifications"}
+          currentUser={currentUser}
         />
 
         <SettingsModal
@@ -292,6 +350,11 @@ export default function MainLayout({
               <div className="flex-1 min-w-0 mx-auto xl:mx-0 space-y-4">
                 <PersonalPage user={profileUser || currentUser} currentUser={currentUser} />
               </div>
+            ) : activeView === "friends" ? (
+              <div className="flex-1 min-w-0 mx-auto xl:mx-0 space-y-4">
+                <FriendRequestList />
+                <FriendSuggestionsList />
+              </div>
             ) : (
               <>
                 {/* Feed column */}
@@ -304,7 +367,7 @@ export default function MainLayout({
                     <>
                       {/* Stories */}
                       <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
-                        <Stories />
+                        <Stories currentUser={currentUser} />
                       </div>
 
                       {/* Create Post */}
@@ -347,7 +410,7 @@ export default function MainLayout({
                 {activeView == "feed" && (
                   <aside className="hidden lg:block w-72 flex-shrink-0">
                     <div className="sticky top-20">
-                      <FriendRequests />
+                      <FriendRequests onSeeAll={() => handleNavChange("friends")} />
                     </div>
                   </aside>
                 )}

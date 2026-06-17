@@ -4,6 +4,7 @@ import { Eye, Lock, Mail, MoreHorizontal, Loader2, Sparkles } from "lucide-react
 import { useSocket } from "@/components/providers/SocketProvider";
 import CreatePost from "../feed/CreatePost";
 import PostCard from "../feed/PostCard";
+import { FriendActionButton } from "@/features/friends/components/FriendActionButton";
 import api from "@/lib/axios";
 
 interface PersonalPageProps {
@@ -132,14 +133,52 @@ export default function PersonalPage({ user, currentUser }: PersonalPageProps) {
       );
     };
 
+    const handleCommentCreated = (comment: any) => {
+      console.log("[PersonalPage] Realtime comment created received:", comment);
+      if (comment.postId) {
+        setPostsList((prev) =>
+          prev.map((post) => {
+            if (post.id === comment.postId) {
+              return {
+                ...post,
+                comments: (post.comments || 0) + 1,
+              };
+            }
+            return post;
+          })
+        );
+      }
+    };
+
+    const handleCommentDeleted = (payload: any) => {
+      console.log("[PersonalPage] Realtime comment deleted received:", payload);
+      if (payload.postId) {
+        setPostsList((prev) =>
+          prev.map((post) => {
+            if (post.id === payload.postId) {
+              return {
+                ...post,
+                comments: Math.max(0, (post.comments || 0) - 1),
+              };
+            }
+            return post;
+          })
+        );
+      }
+    };
+
     socket.on("newPost", handleNewPost);
     socket.on("postReaction", handlePostReaction);
     socket.on("postUpdated", handlePostUpdated);
+    socket.on("commentCreated", handleCommentCreated);
+    socket.on("commentDeleted", handleCommentDeleted);
 
     return () => {
       socket.off("newPost", handleNewPost);
       socket.off("postReaction", handlePostReaction);
       socket.off("postUpdated", handlePostUpdated);
+      socket.off("commentCreated", handleCommentCreated);
+      socket.off("commentDeleted", handleCommentDeleted);
     };
   }, [socket, userId]);
 
@@ -212,9 +251,7 @@ export default function PersonalPage({ user, currentUser }: PersonalPageProps) {
 
           <div className="flex flex-wrap items-center gap-2">
             {!isOwnProfile && (
-              <button className="bg-[#1dd073] hover:bg-[#1bc16a] text-white px-5 py-2 rounded-xl text-xs font-bold tracking-wide transition-all shadow-md shadow-emerald-500/10 active:scale-95">
-                KẾT BẠN
-              </button>
+              <FriendActionButton targetUserId={userId} currentUserId={currentUser?.id} />
             )}
             <button className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-600 transition-colors">
               <Mail size={18} />

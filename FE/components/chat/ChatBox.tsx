@@ -281,21 +281,10 @@ export default function ChatBox({ contact, currentUser, onClose }: ChatBoxProps)
     });
 
     socket.on("newMessage", (message: ChatMessage) => {
+      if (message.conversation_id !== conversationId) return;
       setMessages((prev) => {
         // Tránh trùng tin nhắn nếu ID đã tồn tại
         if (prev.find((m) => m.id === message.id)) return prev;
-
-        // BUGFIX: Thay thế tin nhắn tạm thời (Optimistic update) cho chính người gửi
-        if (message.sender_id === currentUser?.id) {
-          const optIdx = prev.findIndex(
-            (m) => m.status === "sending" && m.content === message.content
-          );
-          if (optIdx !== -1) {
-            const updated = [...prev];
-            updated[optIdx] = { ...message, status: "sent" };
-            return updated;
-          }
-        }
 
         return [...prev, { ...message, status: "sent" }];
       });
@@ -307,23 +296,28 @@ export default function ChatBox({ contact, currentUser, onClose }: ChatBoxProps)
     });
 
     socket.on("messageSent", (message: ChatMessage) => {
+      if (message.conversation_id !== conversationId) return;
       setMessages((prev) => {
-        const idx = prev.findIndex((m) => m.id === message.id || (m.status === "sending" && m.content === message.content));
+        // Dedup by ID
+        if (prev.find((m) => m.id === message.id)) return prev;
+        // Replace optimistic message
+        const idx = prev.findIndex((m) => m.status === "sending" && m.content === message.content);
         if (idx !== -1) {
           const updated = [...prev];
           updated[idx] = { ...message, status: "sent" };
           return updated;
         }
-        // Do NOT append here — newMessage event already handles adding new messages
-        return prev;
+        return [...prev, { ...message, status: "sent" }];
       });
     });
 
     socket.on("messageDeleted", (data: { message_id: string; conversation_id: string }) => {
+      if (data.conversation_id !== conversationId) return;
       setMessages((prev) => prev.filter((m) => m.id !== data.message_id));
     });
 
     socket.on("messageSeen", (data: { user_id: string; conversation_id: string; message_id: string }) => {
+      if (data.conversation_id !== conversationId) return;
       setMessages((prev) =>
         prev.map((m) => (m.id === data.message_id ? { ...m, status: "seen" as const } : m))
       );
@@ -940,7 +934,7 @@ export default function ChatBox({ contact, currentUser, onClose }: ChatBoxProps)
                             <div className="flex items-center justify-between text-[9px] font-bold text-red-500">
                               <span>Lỗi</span>
                               <button
-                                onClick={() => handleRetryUpload(file)}
+                                onClick={() => handleRetryUpload(file.id)}
                                 className="text-slate-400 hover:text-slate-600"
                               >
                                 <RefreshCw size={10} className="animate-spin" />
