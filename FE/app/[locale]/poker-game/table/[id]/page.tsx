@@ -12,6 +12,7 @@ import { HistoryDrawer } from "./components/chat/HistoryDrawer";
 import { SettingsModal } from "./components/settings/SettingsModal";
 import { Toast } from "./components/ui/Toast";
 import { PokerGameProvider } from "./components/hooks/usePokerGame";
+import { SitRequestModal } from "./components/settings/SitRequestModal";
 
 function PokerTableRoom() {
   return (
@@ -51,6 +52,9 @@ function PokerTableRoom() {
 
       {/* ⚙️ Settings Modal */}
       <SettingsModal />
+
+      {/* 🙋‍♂️ Sit Requests Modal */}
+      <SitRequestModal />
     </div>
   );
 }

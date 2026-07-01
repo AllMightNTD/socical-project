@@ -128,9 +128,10 @@ export const ActionBar: React.FC = () => {
             onClick={startGame}
             disabled={!canStart}
             className={`w-full max-w-md py-3 rounded-xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 border shadow-lg
-              ${canStart
-                ? "bg-gradient-to-r from-[#F4B942] to-[#E0942A] hover:brightness-110 border-[#F4B942] text-[#142019] shadow-[#F4B942]/20"
-                : "bg-[#0F4438] border-[#F4B942]/10 text-[#F7EFDD]/30 cursor-not-allowed opacity-60 shadow-none"
+              ${
+                canStart
+                  ? "bg-gradient-to-r from-[#F4B942] to-[#E0942A] hover:brightness-110 border-[#F4B942] text-[#142019] shadow-[#F4B942]/20"
+                  : "bg-[#0F4438] border-[#F4B942]/10 text-[#F7EFDD]/30 cursor-not-allowed opacity-60 shadow-none"
               }`}
           >
             Bắt đầu ván đấu
@@ -207,9 +208,10 @@ export const ActionBar: React.FC = () => {
             disabled={callAmount > 0}
             className={`flex-1 py-3.5 md:py-4 rounded-xl border font-black text-[11px] md:text-sm
               uppercase tracking-widest transition-all active:scale-95
-              ${callAmount > 0
-                ? "border-[#F4B942]/10 bg-[#0F4438]/60 text-[#F7EFDD]/25 cursor-not-allowed opacity-50"
-                : "border-[#F7EFDD]/20 hover:border-[#F7EFDD]/40 bg-[#0F4438]/60 hover:bg-[#0F4438] text-[#F7EFDD]/80"
+              ${
+                callAmount > 0
+                  ? "border-[#F4B942]/10 bg-[#0F4438]/60 text-[#F7EFDD]/25 cursor-not-allowed opacity-50"
+                  : "border-[#F7EFDD]/20 hover:border-[#F7EFDD]/40 bg-[#0F4438]/60 hover:bg-[#0F4438] text-[#F7EFDD]/80"
               }`}
           >
             CHECK
@@ -220,9 +222,10 @@ export const ActionBar: React.FC = () => {
             disabled={callAmount === 0}
             className={`flex-1 py-3.5 md:py-4 rounded-xl font-black text-[11px] md:text-sm uppercase tracking-widest transition-all
               active:scale-95 shadow-lg border
-              ${callAmount === 0
-                ? "border-[#F4B942]/10 bg-[#0F4438]/60 text-[#F7EFDD]/25 cursor-not-allowed opacity-50 shadow-none"
-                : "bg-gradient-to-r from-[#F4B942] to-[#E0942A] hover:brightness-110 text-[#142019] shadow-[#F4B942]/20 border-[#F4B942]"
+              ${
+                callAmount === 0
+                  ? "border-[#F4B942]/10 bg-[#0F4438]/60 text-[#F7EFDD]/25 cursor-not-allowed opacity-50 shadow-none"
+                  : "bg-gradient-to-r from-[#F4B942] to-[#E0942A] hover:brightness-110 text-[#142019] shadow-[#F4B942]/20 border-[#F4B942]"
               }`}
           >
             CALL {callAmount > 0 ? fmt(callAmount) : ""}
@@ -295,6 +298,7 @@ export const ActionBar: React.FC = () => {
                     type="range"
                     min={minRaise}
                     max={maxRaise}
+                    step={step}
                     value={raiseAmount}
                     onChange={(e) => handleSlider(parseInt(e.target.value))}
                     className="flex-1 h-1.5 rounded-full cursor-pointer accent-[#F4B942]"
@@ -320,9 +324,10 @@ export const ActionBar: React.FC = () => {
                 className={`
                   flex-1 py-2.5 md:py-3.5 rounded-xl text-[10px] md:text-sm font-black uppercase tracking-wider
                   transition-all border active:scale-95
-                  ${isSelected
-                    ? "bg-[#F4B942]/20 border-[#F4B942]/60 text-[#F4B942]"
-                    : "bg-[#0F4438]/60 border-[#F4B942]/10 text-[#F7EFDD]/50 hover:border-[#F4B942]/30 hover:text-[#F7EFDD]"
+                  ${
+                    isSelected
+                      ? "bg-[#F4B942]/20 border-[#F4B942]/60 text-[#F4B942]"
+                      : "bg-[#0F4438]/60 border-[#F4B942]/10 text-[#F7EFDD]/50 hover:border-[#F4B942]/30 hover:text-[#F7EFDD]"
                   }
                 `}
               >
@@ -343,11 +348,12 @@ export const ActionBar: React.FC = () => {
             className={`
               flex-[2] py-2.5 md:py-3.5 rounded-xl font-black text-[10px] md:text-sm uppercase tracking-wider
               transition-all active:scale-95 flex items-center justify-center gap-1 border
-              ${isRaiseMode
-                ? isAllIn
-                  ? "bg-gradient-to-r from-[#E23744] to-[#F4B942] border-[#F4B942] text-white shadow-lg"
-                  : "bg-gradient-to-r from-[#F4B942] to-[#E0942A] hover:brightness-110 border-[#F4B942] text-[#142019] shadow-lg shadow-[#F4B942]/20"
-                : "bg-[#F4B942]/15 hover:bg-[#F4B942]/25 border-[#F4B942]/30 text-[#F4B942]"
+              ${
+                isRaiseMode
+                  ? isAllIn
+                    ? "bg-gradient-to-r from-[#E23744] to-[#F4B942] border-[#F4B942] text-white shadow-lg"
+                    : "bg-gradient-to-r from-[#F4B942] to-[#E0942A] hover:brightness-110 border-[#F4B942] text-[#142019] shadow-lg shadow-[#F4B942]/20"
+                  : "bg-[#F4B942]/15 hover:bg-[#F4B942]/25 border-[#F4B942]/30 text-[#F4B942]"
               }
             `}
           >

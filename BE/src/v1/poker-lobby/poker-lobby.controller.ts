@@ -15,6 +15,7 @@ import {
 import { AuthGuard } from '../guards/auth.guard';
 import { PokerLobbyService } from './poker-lobby.service';
 import { PokerLobbyGateway } from './poker-lobby.gateway';
+import { PokerGameService } from './poker-game.service';
 import { Response } from 'express';
 import { PokerTable } from '../entities/poker_table.entity';
 
@@ -79,6 +80,7 @@ export class RoomsController {
   constructor(
     private readonly lobbyService: PokerLobbyService,
     private readonly lobbyGateway: PokerLobbyGateway,
+    private readonly gameService: PokerGameService,
   ) {}
 
   @Post(':roomId/seats/join')
@@ -102,7 +104,10 @@ export class RoomsController {
       });
 
       // Broadcast full table state
-      await this.lobbyGateway.broadcastTableState(roomId);
+      await this.gameService.broadcastTableState(roomId);
+      
+      // Auto-start game if enough players are seated
+      await this.gameService.checkAndNotifyWaitingState(roomId);
     } else {
       // Send Socket: join_request_created (guests filter on client-side or received by host)
       this.lobbyGateway.server.to(`table_${roomId}`).emit('join_request_created', {
@@ -113,7 +118,7 @@ export class RoomsController {
       });
 
       // Broadcast updated sit requests list to the room
-      await this.lobbyGateway.broadcastSitRequests(roomId);
+      await this.gameService.broadcastSitRequests(roomId);
     }
 
     return result;
@@ -162,7 +167,15 @@ export class RoomsController {
     @Body() body: { room_id: string; amount: number; seat_number: number; custom_name?: string },
   ) {
     const userId = req.user.sub;
-    return this.lobbyService.buyIn(userId, body);
+    const result = await this.lobbyService.buyIn(userId, body);
+    
+    // Broadcast full table state
+    await this.gameService.broadcastTableState(body.room_id);
+    
+    // Auto-start game if enough players are seated
+    await this.gameService.checkAndNotifyWaitingState(body.room_id);
+    
+    return result;
   }
 
   @Post('sit-action')
@@ -172,14 +185,30 @@ export class RoomsController {
     @Body() body: { room_id: string; action: 'sit_out' | 'sit_back' },
   ) {
     const userId = req.user.sub;
-    return this.lobbyService.sitAction(userId, body);
+    const result = await this.lobbyService.sitAction(userId, body);
+    
+    // Broadcast full table state
+    await this.gameService.broadcastTableState(body.room_id);
+    
+    // Auto-start game if enough players are seated
+    await this.gameService.checkAndNotifyWaitingState(body.room_id);
+    
+    return result;
   }
 
   @Post('leave')
   @HttpCode(HttpStatus.OK)
   async leave(@Request() req, @Body('room_id') roomId: string) {
     const userId = req.user.sub;
-    return this.lobbyService.leaveRoom(userId, roomId);
+    const result = await this.lobbyService.leaveRoom(userId, roomId);
+    
+    // Broadcast full table state
+    await this.gameService.broadcastTableState(roomId);
+    
+    // Auto-start game if enough players are seated
+    await this.gameService.checkAndNotifyWaitingState(roomId);
+    
+    return result;
   }
 
   @Post(':id/config')
@@ -212,7 +241,15 @@ export class RoomsController {
     @Body() body: { target_user_id: string },
   ) {
     const userId = req.user.sub;
-    return this.lobbyService.forceSitOut(userId, id, body.target_user_id);
+    const result = await this.lobbyService.forceSitOut(userId, id, body.target_user_id);
+    
+    // Broadcast full table state
+    await this.gameService.broadcastTableState(id);
+    
+    // Auto-start game if enough players are seated
+    await this.gameService.checkAndNotifyWaitingState(id);
+    
+    return result;
   }
 
   @Post(':id/modify-stack')
@@ -259,7 +296,11 @@ export class RoomsController {
     }
 
     const result = await this.lobbyService.addBotToSeat(roomId, body);
-    await this.lobbyGateway.broadcastTableState(roomId);
+    await this.gameService.broadcastTableState(roomId);
+    
+    // Auto-start game if enough players are seated
+    await this.gameService.checkAndNotifyWaitingState(roomId);
+    
     return result;
   }
 
@@ -280,7 +321,11 @@ export class RoomsController {
     }
 
     const result = await this.lobbyService.removeBotFromSeat(roomId, body.seat_number);
-    await this.lobbyGateway.broadcastTableState(roomId);
+    await this.gameService.broadcastTableState(roomId);
+    
+    // Auto-start game if enough players are seated, or emit waiting
+    await this.gameService.checkAndNotifyWaitingState(roomId);
+    
     return result;
   }
 }

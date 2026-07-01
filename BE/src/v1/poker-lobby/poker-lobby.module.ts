@@ -13,6 +13,7 @@ import {
 import { PokerLobbyService } from './poker-lobby.service';
 import { PokerLobbyGateway } from './poker-lobby.gateway';
 import { PokerStateService } from './poker-state.service';
+import { PokerGameService } from './poker-game.service';
 import { ConfigModule } from '@nestjs/config';
 
 @Module({
@@ -21,8 +22,8 @@ import { ConfigModule } from '@nestjs/config';
     TypeOrmModule.forFeature([PokerTable, TableSession, Wallet, SystemRevenue]),
   ],
   controllers: [LobbyController, WalletController, RoomsController, UserController],
-  providers: [PokerLobbyService, PokerLobbyGateway, PokerStateService],
-  exports: [PokerLobbyService, PokerLobbyGateway, PokerStateService],
+  providers: [PokerLobbyService, PokerLobbyGateway, PokerStateService, PokerGameService],
+  exports: [PokerLobbyService, PokerLobbyGateway, PokerStateService, PokerGameService],
 })
 export class PokerLobbyModule {}
 

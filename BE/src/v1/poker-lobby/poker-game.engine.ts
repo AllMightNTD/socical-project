@@ -10,6 +10,7 @@ export interface PokerPlayerState {
 export interface SidePot {
   amount: number;
   eligibleSeats: number[];
+  isUncalled?: boolean;
 }
 
 export class PokerGameEngine {
@@ -52,7 +53,6 @@ export class PokerGameEngine {
    * Chuẩn Poker quốc tế
    */
   static splitPot(players: PokerPlayerState[]): SidePot[] {
-
     const remaining = players
       .filter(p => p.bet > 0)
       .map(p => ({
@@ -63,48 +63,52 @@ export class PokerGameEngine {
     const pots: SidePot[] = [];
 
     while (true) {
-
       const contributors = remaining.filter(p => p.remaining > 0);
+      if (contributors.length === 0) break;
 
-      if (contributors.length === 0) {
-        break;
-      }
+      const minContribution = Math.min(...contributors.map(p => p.remaining));
+      const amount = contributors.length * minContribution;
+      const eligibleSeats = contributors.filter(p => !p.folded).map(p => p.seat);
+      const isUncalled = contributors.length === 1; // Uncalled bet if only 1 contributor
 
-      const minContribution = Math.min(
-        ...contributors.map(p => p.remaining),
-      );
-
-      const amount =
-        contributors.length *
-        minContribution;
-
-      const eligibleSeats =
-        contributors
-          .filter(p => !p.folded)
-          .map(p => p.seat);
-
-      if (
-        amount > 0 &&
-        eligibleSeats.length > 0
-      ) {
-
-        pots.push({
-          amount,
-          eligibleSeats,
-        });
-
+      if (amount > 0) {
+        if (eligibleSeats.length > 0) {
+          pots.push({ amount, eligibleSeats, isUncalled });
+        } else if (pots.length > 0) {
+          // Dead money from folded players goes to the previous pot
+          pots[pots.length - 1].amount += amount;
+        } else {
+          // Should not happen unless everyone folded (handled by endHandEarly before)
+          pots.push({ amount, eligibleSeats, isUncalled });
+        }
       }
 
       for (const p of contributors) {
-
         p.remaining -= minContribution;
-
       }
-
     }
 
-    return pots;
+    // Merge pots with exactly the same eligible seats and uncalled status
+    const mergedPots: SidePot[] = [];
+    for (const pot of pots) {
+      if (mergedPots.length === 0) {
+        mergedPots.push(pot);
+        continue;
+      }
+      const lastPot = mergedPots[mergedPots.length - 1];
+      const sameSeats =
+        lastPot.eligibleSeats.length === pot.eligibleSeats.length &&
+        lastPot.eligibleSeats.every(s => pot.eligibleSeats.includes(s));
+      const sameUncalled = lastPot.isUncalled === pot.isUncalled;
 
+      if (sameSeats && sameUncalled) {
+        lastPot.amount += pot.amount;
+      } else {
+        mergedPots.push(pot);
+      }
+    }
+
+    return mergedPots;
   }
 
   /**

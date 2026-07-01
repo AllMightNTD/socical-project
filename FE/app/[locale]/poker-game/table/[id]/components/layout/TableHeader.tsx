@@ -1,25 +1,24 @@
 "use client";
 
-import React, { useState } from "react";
+import { useCurrentUser } from "@/core/providers/user-provider";
 import { Link } from "@/i18n/routing";
 import {
   ChevronLeft,
-  Volume2,
-  VolumeX,
-  Settings,
-  Sparkles,
+  FileText,
   MessageSquare,
   ScrollText,
-  Wifi,
-  Users,
+  Settings,
   ShieldCheck,
-  FileText,
   Sliders,
+  Sparkles,
+  Users,
+  Volume2,
+  VolumeX,
+  Wifi,
 } from "lucide-react";
+import { useState } from "react";
 import { usePokerGame } from "../hooks/usePokerGame";
 import { useResponsive } from "../hooks/useResponsive";
-import { useCurrentUser } from "@/core/providers/user-provider";
-import { HostSettingsModal } from "../settings/HostSettingsModal";
 import { StatsModal } from "../settings/StatsModal";
 import { ProvablyFairModal } from "../ui/ProvablyFairModal";
 
@@ -72,12 +71,12 @@ export const TableHeader = () => {
 
   const stageLabel =
     gameStage === "showdown" ? "Ngửa bài"
-    : gameStage === "preflop" ? "Pre-Flop"
-    : gameStage === "flop" ? "Flop"
-    : gameStage === "turn" ? "Turn"
-    : gameStage === "river" ? "River"
-    : gameStage === "ended" ? "Đợi ván..."
-    : gameStage;
+      : gameStage === "preflop" ? "Pre-Flop"
+        : gameStage === "flop" ? "Flop"
+          : gameStage === "turn" ? "Turn"
+            : gameStage === "river" ? "River"
+              : gameStage === "ended" ? "Đợi ván..."
+                : gameStage;
 
   return (
     <header className="h-14 border-b border-slate-800/60 bg-slate-950/95 backdrop-blur-md px-3 md:px-5 flex items-center justify-between shrink-0 z-20 gap-2">
@@ -173,11 +172,10 @@ export const TableHeader = () => {
 
         <button
           onClick={() => setShowChat(!showChat)}
-          className={`w-9 h-9 rounded-xl border transition-colors flex items-center justify-center ${
-            showChat
-              ? "bg-emerald-600/10 border-emerald-500/30 text-emerald-400"
-              : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"
-          }`}
+          className={`w-9 h-9 rounded-xl border transition-colors flex items-center justify-center ${showChat
+            ? "bg-emerald-600/10 border-emerald-500/30 text-emerald-400"
+            : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"
+            }`}
           aria-label="Chat"
         >
           <MessageSquare size={14} />
@@ -185,11 +183,10 @@ export const TableHeader = () => {
 
         <button
           onClick={() => setShowHistory(!showHistory)}
-          className={`w-9 h-9 rounded-xl border transition-colors flex items-center justify-center ${
-            showHistory
-              ? "bg-amber-600/10 border-amber-500/30 text-amber-400"
-              : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"
-          }`}
+          className={`w-9 h-9 rounded-xl border transition-colors flex items-center justify-center ${showHistory
+            ? "bg-amber-600/10 border-amber-500/30 text-amber-400"
+            : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"
+            }`}
           aria-label="Hand History"
         >
           <ScrollText size={14} />
@@ -203,9 +200,6 @@ export const TableHeader = () => {
           <Settings size={14} />
         </button>
       </div>
-
-      {/* Render Modals */}
-      <HostSettingsModal isOpen={hostSettingsOpen} onClose={() => setHostSettingsOpen(false)} />
       <StatsModal isOpen={statsOpen} onClose={() => setStatsOpen(false)} />
       <ProvablyFairModal isOpen={provablyFairOpen} onClose={() => setProvablyFairOpen(false)} />
     </header>

@@ -67,7 +67,7 @@ const CardBackPattern = ({ styleType = "classic" }: { styleType?: "classic" | "m
 };
 
 interface PokerCardProps {
-  suit: "H" | "D" | "S" | "C";
+  suit: "H" | "D" | "S" | "C" | "back" | "?" | string;
   rank: string;
   isFaceUp: boolean;
   size?: "sm" | "md" | "lg";
@@ -75,74 +75,90 @@ interface PokerCardProps {
   deckStyle?: "classic" | "modern" | "cyberpunk";
 }
 
+import { motion } from "framer-motion";
+
 export const PokerCard = ({ suit, rank, isFaceUp, size = "md", className = "", deckStyle = "classic" }: PokerCardProps) => {
   const sizeClasses = {
-    sm: "w-[32px] h-[46px] rounded-[4px] p-0.5",
-    md: "w-[44px] h-[64px] rounded-md p-1",
-    lg: "w-[56px] h-[80px] md:w-[70px] md:h-[100px] rounded-lg p-1.5",
+    sm: "w-[32px] h-[46px] rounded-[6px]",
+    md: "w-[44px] h-[64px] rounded-[10px]",
+    lg: "w-[56px] h-[80px] sm:w-[64px] sm:h-[90px] md:w-[84px] md:h-[120px] rounded-[14px]",
   };
 
-  if (!isFaceUp) {
-    const backGradient =
-      deckStyle === "modern"
-        ? "from-indigo-800 via-indigo-900 to-slate-950 border-indigo-500/40"
-        : deckStyle === "cyberpunk"
-        ? "from-slate-900 via-yellow-950 to-black border-yellow-500/40"
-        : "from-red-700 via-red-800 to-red-950 border-red-500/40";
+  const backGradient =
+    deckStyle === "modern"
+      ? "from-indigo-800 via-indigo-900 to-slate-950 border-indigo-500/40"
+      : deckStyle === "cyberpunk"
+      ? "from-slate-900 via-yellow-950 to-black border-yellow-500/40"
+      : "from-red-700 via-red-800 to-red-950 border-red-500/40";
 
-    const tokenColor =
-      deckStyle === "modern"
-        ? "text-indigo-400/90 border-indigo-400/30"
-        : deckStyle === "cyberpunk"
-        ? "text-yellow-400/95 border-yellow-400/30"
-        : "text-amber-400/90 border-amber-400/30";
+  const tokenColor =
+    deckStyle === "modern"
+      ? "text-indigo-400/90 border-indigo-400/30"
+      : deckStyle === "cyberpunk"
+      ? "text-yellow-400/95 border-yellow-400/30"
+      : "text-amber-400/90 border-amber-400/30";
 
-    return (
-      <div
-        className={`${sizeClasses[size]} bg-gradient-to-br ${backGradient} border shadow-[0_4px_8px_rgba(0,0,0,0.45)] flex items-center justify-center relative overflow-hidden select-none ${className}`}
-      >
-        <div className="absolute inset-[1px] border border-white/10 rounded-[inherit] pointer-events-none" />
-        <div className="absolute inset-[1px]">
-          <CardBackPattern styleType={deckStyle} />
-        </div>
-        <div className={`absolute w-[45%] h-[45%] rounded-full border ${tokenColor} flex items-center justify-center bg-black/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)]`}>
-          <Coins className="w-[60%] h-[60%]" />
-        </div>
-      </div>
-    );
-  }
-
-  const textColors = SUIT_COLORS[suit];
+  const textColors = SUIT_COLORS[suit as keyof typeof SUIT_COLORS] || "text-slate-900";
 
   return (
-    <div
-      className={`${sizeClasses[size]} bg-white border border-slate-300 shadow-[0_4px_10px_rgba(0,0,0,0.3)] flex flex-col justify-between select-none relative overflow-hidden ${className}`}
-    >
-      {/* Light sheen overlay */}
-      <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-white/25 pointer-events-none" />
+    <div className={`${sizeClasses[size]} relative ${className}`} style={{ perspective: 1000 }}>
+      <motion.div
+        className="w-full h-full relative"
+        initial={false}
+        animate={{ rotateY: isFaceUp ? 0 : 180 }}
+        transition={{ duration: 0.6, type: "spring", stiffness: 260, damping: 20 }}
+        style={{ transformStyle: "preserve-3d" }}
+      >
+        {/* FRONT FACE */}
+        <div 
+          className={`absolute inset-0 bg-white border border-slate-300 shadow-[0_4px_10px_rgba(0,0,0,0.3)] flex flex-col justify-between select-none overflow-hidden rounded-[inherit]`}
+          style={{ backfaceVisibility: "hidden", padding: size === "sm" ? "2px" : size === "md" ? "4px" : "6px" }}
+        >
+          {/* Light sheen overlay */}
+          <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-white/25 pointer-events-none" />
 
-      {/* Top Left Corner */}
-      <div className="flex flex-col items-center leading-none text-left self-start">
-        <span className={`font-black tracking-tighter ${size === "sm" ? "text-[9px]" : size === "md" ? "text-[11px]" : "text-xs md:text-sm"} ${textColors} font-sans`}>
-          {rank}
-        </span>
-        <SuitIcon suit={suit} className={size === "sm" ? "w-2.5 h-2.5" : size === "md" ? "w-3 h-3" : "w-3.5 h-3.5"} />
-      </div>
+          {/* Top Left Corner */}
+          <div className="flex flex-col items-center leading-none text-left self-start relative z-10">
+            <span className={`font-black tracking-tighter ${size === "sm" ? "text-[9px]" : size === "md" ? "text-[11px]" : "text-xs md:text-sm"} ${textColors} font-sans`}>
+              {rank}
+            </span>
+            {suit && suit !== "back" && suit !== "?" && (
+              <SuitIcon suit={suit as any} className={size === "sm" ? "w-2.5 h-2.5" : size === "md" ? "w-3 h-3" : "w-3.5 h-3.5"} />
+            )}
+          </div>
 
-      {/* Center Suit Icon */}
-      {size !== "sm" && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.95] z-0">
-          <SuitIcon suit={suit} className={size === "md" ? "w-4 h-4" : "w-7 h-7 md:w-9 h-9"} />
+          {/* Center Suit Icon */}
+          {size !== "sm" && suit && suit !== "back" && suit !== "?" && (
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.95] z-0">
+              <SuitIcon suit={suit as any} className={size === "md" ? "w-4 h-4" : "w-7 h-7 md:w-9 h-9"} />
+            </div>
+          )}
+
+          {/* Bottom Right Corner (rotated) */}
+          <div className="flex flex-col items-center leading-none text-left self-end rotate-180 z-10 relative">
+            <span className={`font-black tracking-tighter ${size === "sm" ? "text-[9px]" : size === "md" ? "text-[11px]" : "text-xs md:text-sm"} ${textColors} font-sans`}>
+              {rank}
+            </span>
+            {suit && suit !== "back" && suit !== "?" && (
+              <SuitIcon suit={suit as any} className={size === "sm" ? "w-2.5 h-2.5" : size === "md" ? "w-3 h-3" : "w-3.5 h-3.5"} />
+            )}
+          </div>
         </div>
-      )}
 
-      {/* Bottom Right Corner (rotated) */}
-      <div className="flex flex-col items-center leading-none text-left self-end rotate-180 z-10">
-        <span className={`font-black tracking-tighter ${size === "sm" ? "text-[9px]" : size === "md" ? "text-[11px]" : "text-xs md:text-sm"} ${textColors} font-sans`}>
-          {rank}
-        </span>
-        <SuitIcon suit={suit} className={size === "sm" ? "w-2.5 h-2.5" : size === "md" ? "w-3 h-3" : "w-3.5 h-3.5"} />
-      </div>
+        {/* BACK FACE */}
+        <div 
+          className={`absolute inset-0 bg-gradient-to-br ${backGradient} border shadow-[0_4px_8px_rgba(0,0,0,0.45)] flex items-center justify-center overflow-hidden rounded-[inherit]`}
+          style={{ backfaceVisibility: "hidden", transform: "rotateY(180deg)" }}
+        >
+          <div className="absolute inset-[1px] border border-white/10 rounded-[inherit] pointer-events-none" />
+          <div className="absolute inset-[1px]">
+            <CardBackPattern styleType={deckStyle} />
+          </div>
+          <div className={`absolute w-[45%] h-[45%] rounded-full border ${tokenColor} flex items-center justify-center bg-black/60 shadow-[inset_0_2px_4px_rgba(0,0,0,0.5)]`}>
+            <Coins className="w-[60%] h-[60%]" />
+          </div>
+        </div>
+      </motion.div>
     </div>
   );
 };

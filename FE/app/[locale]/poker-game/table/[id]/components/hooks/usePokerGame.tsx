@@ -58,8 +58,9 @@ interface PokerGameContextProps {
   setMaxRaise: (v: number) => void;
   raiseAmount: number;
   setRaiseAmount: (v: number) => void;
-  gameStage: "preflop" | "flop" | "turn" | "river" | "showdown" | "ended";
-  setGameStage: React.Dispatch<React.SetStateAction<"preflop" | "flop" | "turn" | "river" | "showdown" | "ended">>;
+  waitingMessage: { text: string, starting: boolean } | null;
+  gameStage: "preflop" | "flop" | "turn" | "river" | "showdown" | "ended" | "waiting";
+  setGameStage: React.Dispatch<React.SetStateAction<"preflop" | "flop" | "turn" | "river" | "showdown" | "ended" | "waiting">>;
   players: Player[];
   setPlayers: React.Dispatch<React.SetStateAction<Player[]>>;
   chatInput: string;
@@ -93,6 +94,7 @@ interface PokerGameContextProps {
   currentHighestBet: number;
   minBuyin: number;
   maxBuyin: number;
+  maxPlayers: number;
 
   // Host Mod Actions
   modifyBlinds: (sb: number) => Promise<void>;
@@ -143,13 +145,15 @@ export const PokerGameProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // Table State
   const [tableName, setTableName] = useState("Bàn Poker");
+  const [maxPlayers, setMaxPlayers] = useState(6);
   const [smallBlind, setSmallBlind] = useState("50");
   const [bigBlind, setBigBlind] = useState("100");
   const [pot, setPot] = useState("0");
   const [minRaise, setMinRaise] = useState(200);
   const [maxRaise, setMaxRaise] = useState(1000);
-  const [raiseAmount, setRaiseAmount] = useState(200);
-  const [gameStage, setGameStage] = useState<"preflop" | "flop" | "turn" | "river" | "showdown" | "ended">("ended");
+  const [raiseAmount, setRaiseAmount] = useState(0);
+  const [waitingMessage, setWaitingMessage] = useState<{ text: string, starting: boolean } | null>(null);
+  const [gameStage, setGameStage] = useState<"preflop" | "flop" | "turn" | "river" | "showdown" | "ended" | "waiting">("waiting");
   const [players, setPlayers] = useState<Player[]>([]);
   const [communityCards, setCommunityCards] = useState<Card[]>([]);
   const [ownerId, setOwnerId] = useState("");
@@ -230,14 +234,26 @@ export const PokerGameProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const getFeltStyles = (theme: TableBackgroundTheme) => {
     switch (theme) {
       case "royal_blue":
-        return { gradient: "from-blue-950/95 via-blue-900/90 to-blue-950/95", line: "border-blue-500/15" };
+        return { 
+          gradient: "bg-[radial-gradient(ellipse_at_center,_#1e3a8a_0%,_#172554_80%,_#020617_100%)]", 
+          line: "border-blue-400/30 shadow-[0_0_15px_rgba(59,130,246,0.3)]" 
+        };
       case "ruby_red":
-        return { gradient: "from-rose-950/95 via-rose-900/90 to-rose-950/95", line: "border-rose-500/15" };
+        return { 
+          gradient: "bg-[radial-gradient(ellipse_at_center,_#9f1239_0%,_#4c0519_80%,_#000000_100%)]", 
+          line: "border-rose-400/30 shadow-[0_0_15px_rgba(244,63,94,0.3)]" 
+        };
       case "shadow_black":
-        return { gradient: "from-slate-950/95 via-slate-900/90 to-slate-950/95", line: "border-slate-700/25" };
+        return { 
+          gradient: "bg-[radial-gradient(ellipse_at_center,_#334155_0%,_#0f172a_80%,_#000000_100%)]", 
+          line: "border-slate-400/30 shadow-[0_0_15px_rgba(148,163,184,0.3)]" 
+        };
       case "classic_green":
       default:
-        return { gradient: "from-emerald-950/95 via-emerald-900/90 to-emerald-950/95", line: "border-emerald-500/10" };
+        return { 
+          gradient: "bg-[radial-gradient(ellipse_at_center,_#047857_0%,_#064e3b_80%,_#022c22_100%)]", 
+          line: "border-emerald-400/30 shadow-[0_0_15px_rgba(16,185,129,0.3)]" 
+        };
     }
   };
 
@@ -314,7 +330,11 @@ export const PokerGameProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     socket.on("table:state", (data: any) => {
       setTableName(data.room_name || "Bàn Poker");
+      setMaxPlayers(data.max_players || 6);
       setGameStage(data.game_stage);
+      if (data.game_stage !== 'waiting') {
+        setWaitingMessage(null);
+      }
       setPot(data.total_pot.toString());
       setCommunityCards(data.community_cards ? data.community_cards.map(parseCard) : []);
       setDealerSeat(data.dealer_seat);
@@ -335,6 +355,12 @@ export const PokerGameProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           return data.seats.map((s: any) => {
             const isHero = s.id === currentUserRef.current?.id;
             const existingPlayer = prev.find((p) => p.seatIndex === s.seatIndex);
+            
+            let defaultCards: any[] | undefined = undefined;
+            if (data.game_stage !== "waiting" && data.game_stage !== "ended" && s.status !== "folded") {
+              defaultCards = isHero ? [] : [{ suit: "S", rank: "A" }, { suit: "S", rank: "A" }];
+            }
+
             return {
               seatIndex: s.seatIndex,
               id: s.id,
@@ -352,7 +378,7 @@ export const PokerGameProvider: React.FC<{ children: React.ReactNode }> = ({ chi
               hasAllIn: s.chips === "0" && s.status === "active",
               isHero,
               isBot: s.isBot,
-              cards: existingPlayer ? existingPlayer.cards : (isHero ? [] : undefined),
+              cards: existingPlayer?.cards?.length ? existingPlayer.cards : defaultCards,
             };
           });
         });
@@ -457,9 +483,15 @@ export const PokerGameProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           lastAction: "",
           isFolded: false,
           hasAllIn: false,
-          cards: p.isHero ? [] : undefined,
+          cards: p.isHero ? [] : [{ suit: "S", rank: "A" }, { suit: "S", rank: "A" }],
         }))
       );
+    });
+
+    socket.on("table:hand-aborted", (data: any) => {
+      showToast(data.reason || "Ván bài bị huỷ đột ngột do lỗi hệ thống.", "error");
+      setCommunityCards([]);
+      setGameStage("waiting");
     });
 
     socket.on("table:street-advanced", (data: any) => {
@@ -514,13 +546,21 @@ export const PokerGameProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
     });
 
-    socket.on("table:rebuy-countdown", (data: any) => {
+    socket.on("table:player-busted", (data: any) => {
       if (data.user_id === currentUserRef.current?.id) {
-        showToast(`Bạn có ${data.time_limit} giây để nạp thêm chip (Re-buy) hoặc sẽ bị kick khỏi bàn!`, "warning");
+        showToast(`Bạn đã hết chip và rời khỏi ghế (Trở thành khán giả). Bạn có thể Buy-in lại để tiếp tục chơi!`, "error");
       } else {
         const actor = playersRef.current.find(p => p.seatIndex === data.seat_number);
-        showToast(`Người chơi ${actor ? actor.name : `ở ghế ${data.seat_number}`} đang có ${data.time_limit} giây để Re-buy.`, "info");
+        showToast(`Người chơi ${actor ? actor.name : `ở ghế ${data.seat_number}`} đã hết chip và rời bàn!`, "info");
       }
+      
+      // Remove player from the seat
+      setPlayers((prev) => prev.filter(p => p.seatIndex !== data.seat_number));
+    });
+
+    socket.on("table:player-left-seat", (data: any) => {
+      // Remove player from the seat
+      setPlayers((prev) => prev.filter(p => p.seatIndex !== data.seat_number));
     });
 
     socket.on("table:player-sat-out", (data: any) => {
@@ -568,6 +608,44 @@ export const PokerGameProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
     });
 
+    socket.on("table:waiting-for-players", (data: { required: number, current: number, starting: boolean, can_start?: boolean }) => {
+      if (data.can_start) {
+        setWaitingMessage({
+          text: `Bàn đã đủ người! Chờ chủ phòng bắt đầu.`,
+          starting: true
+        });
+      } else {
+        setWaitingMessage({
+          text: `Đang chờ người chơi... (${data.current}/${data.required})`,
+          starting: false
+        });
+      }
+    });
+
+    // Handle explicit board reset
+    socket.on("table:board-reset-state", (data: any) => {
+      const resetUI = () => {
+        setCommunityCards([]);
+        setGameStage("waiting");
+        setPlayers((prev) =>
+          prev.map((p) => ({
+            ...p,
+            cards: [],
+            current_bet: "0",
+            lastAction: "",
+            hasAllIn: false,
+            isFolded: false,
+            isDealer: false,
+            isSmallBlind: false,
+            isBigBlind: false,
+            isActive: false,
+          }))
+        );
+      };
+      resetUI();
+      showToast(data.message || "Bàn đã được reset do không đủ người chơi.", "info");
+    });
+
     return () => {
       socket.off("table:state");
       socket.off("table:private-cards");
@@ -578,7 +656,8 @@ export const PokerGameProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       socket.off("table:blinds-escalated");
       socket.off("table:hand-started");
       socket.off("table:hand-ended");
-      socket.off("table:rebuy-countdown");
+      socket.off("table:player-busted");
+      socket.off("table:player-left-seat");
       socket.off("table:player-sat-out");
       socket.off("table:sit-requests-list");
       socket.off("table:sit-request-submitted");
@@ -586,6 +665,8 @@ export const PokerGameProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       socket.off("table:sit-declined");
       socket.off("user_joined_seat");
       socket.off("join_request_created");
+      socket.off("table:waiting-for-players");
+      socket.off("table:board-reset-state");
     };
   }, [socket, tableId, isConnected]);
 
@@ -745,6 +826,7 @@ export const PokerGameProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setMaxRaise,
         raiseAmount,
         setRaiseAmount,
+        waitingMessage,
         gameStage,
         setGameStage,
         players,
@@ -788,6 +870,7 @@ export const PokerGameProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         startGame,
         minBuyin,
         maxBuyin,
+        maxPlayers,
       }}
     >
       {children}

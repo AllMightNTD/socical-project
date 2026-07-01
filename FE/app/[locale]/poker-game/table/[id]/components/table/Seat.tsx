@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { Coins, User, X } from "lucide-react";
 import { useParams } from "next/navigation";
 import React, { memo, useEffect, useState } from "react";
-import { seatPositions } from "../constants";
+import { getSeatPositions } from "../constants";
 import { usePokerGame } from "../hooks/usePokerGame";
 import { useResponsive } from "../hooks/useResponsive";
 import { Player } from "../types";
@@ -255,7 +255,8 @@ export const Seat = memo(function Seat({ seatNumber, player }: SeatProps) {
   const { currentUser } = useCurrentUser();
   const [isBuyInOpen, setIsBuyInOpen] = useState(false);
 
-  const pos = seatPositions[seatNumber - 1] || seatPositions[0];
+  const positions = getSeatPositions(6);
+  const pos = positions[seatNumber - 1] || positions[0];
   const isOwner = currentUser?.id === ownerId;
 
   if (!player) {
@@ -432,14 +433,14 @@ export const Seat = memo(function Seat({ seatNumber, player }: SeatProps) {
 
       {/* Hole cards — above panel */}
       {!player.isFolded && player.cards && player.cards.length > 0 && (
-        <div className="absolute -top-[22px] left-1/2 -translate-x-1/2 flex -space-x-2.5 z-30 pointer-events-none">
+        <div className="absolute -top-[22px] md:-top-[40px] left-1/2 -translate-x-1/2 flex -space-x-2.5 md:-space-x-6 z-30 pointer-events-none">
           {player.cards.map((card, cIdx) => (
             <PokerCard
               key={`hole-${player.id}-${cIdx}`}
               suit={card.suit}
               rank={card.rank}
               isFaceUp={isHero || gameStage === "showdown"}
-              size={isMobile ? "sm" : isHero ? "md" : "sm"}
+              size={isHero ? (isMobile ? "md" : "lg") : (isMobile ? "sm" : "md")}
               deckStyle={cardDeckStyle}
               className={`shadow-lg ${cIdx === 0 ? "-rotate-6 translate-y-[2px]" : "rotate-6"
                 }`}

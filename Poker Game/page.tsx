@@ -1,28 +1,29 @@
 "use client";
 
-import { useSocket } from "@/core/providers/SocketProvider";
+import React, { useState, useEffect } from "react";
 import { UserProvider, useCurrentUser } from "@/core/providers/user-provider";
-import { useRouter } from "@/i18n/routing";
+import { useSocket } from "@/core/providers/SocketProvider";
 import api from "@/lib/axios";
-import { AnimatePresence, motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
+import { useRouter } from "@/i18n/routing";
 import {
-  Activity,
-  CheckCircle2,
-  ChevronRight,
   Coins,
-  Eye,
-  Flame,
-  Plus,
   Search,
-  Settings,
-  Sparkles,
-  Trophy,
+  Plus,
   Users,
+  Eye,
+  SlidersHorizontal,
+  ChevronRight,
+  Settings,
+  X,
   Volume2,
   VolumeX,
-  X
+  Trophy,
+  Activity,
+  CheckCircle2,
+  Sparkles,
+  Flame,
 } from "lucide-react";
-import React, { useEffect, useState } from "react";
 
 /**
  * DESIGN NOTE
@@ -467,10 +468,11 @@ function PokerGameLobby() {
               initial={{ opacity: 0, y: 50, scale: 0.9 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.9 }}
-              className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl border text-sm font-semibold backdrop-blur-md text-white ${toast.type === "success"
-                ? "bg-[#1B6B4F]/95 border-[#F4B942]/40"
-                : "bg-[#E23744]/95 border-[#E23744]"
-                }`}
+              className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-4 rounded-2xl shadow-2xl border text-sm font-semibold backdrop-blur-md text-white ${
+                toast.type === "success"
+                  ? "bg-[#1B6B4F]/95 border-[#F4B942]/40"
+                  : "bg-[#E23744]/95 border-[#E23744]"
+              }`}
             >
               {toast.type === "success" ? (
                 <CheckCircle2 size={18} className="shrink-0 text-[#F4B942]" />
@@ -599,10 +601,11 @@ function PokerGameLobby() {
               <button
                 key={filter.id}
                 onClick={() => setSelectedFilter(filter.id)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${selectedFilter === filter.id
-                  ? "bg-[#F4B942] text-[#142019] shadow-md shadow-[#F4B942]/20"
-                  : "bg-[#0B3D2E] text-[#F7EFDD]/60 hover:text-[#F7EFDD] hover:bg-[#0B3D2E]/70"
-                  }`}
+                className={`px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-1.5 ${
+                  selectedFilter === filter.id
+                    ? "bg-[#F4B942] text-[#142019] shadow-md shadow-[#F4B942]/20"
+                    : "bg-[#0B3D2E] text-[#F7EFDD]/60 hover:text-[#F7EFDD] hover:bg-[#0B3D2E]/70"
+                }`}
               >
                 <span className={selectedFilter === filter.id ? "" : filter.color}>{filter.suit}</span>
                 {filter.label}
@@ -678,10 +681,11 @@ function PokerGameLobby() {
                     {Array.from({ length: table.max_players }).map((_, seatIdx) => (
                       <span
                         key={seatIdx}
-                        className={`w-2.5 h-2.5 rounded-full ${seatIdx < table.current_players
-                          ? "bg-[#F4B942] shadow-sm shadow-[#F4B942]/40"
-                          : "bg-[#F7EFDD]/10"
-                          }`}
+                        className={`w-2.5 h-2.5 rounded-full ${
+                          seatIdx < table.current_players
+                            ? "bg-[#F4B942] shadow-sm shadow-[#F4B942]/40"
+                            : "bg-[#F7EFDD]/10"
+                        }`}
                       />
                     ))}
                   </div>
@@ -705,10 +709,11 @@ function PokerGameLobby() {
                     <button
                       onClick={() => handleJoinTable(table)}
                       disabled={isFull}
-                      className={`flex-1 py-3 px-4 rounded-xl font-black text-xs transition-all uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer ${isFull
-                        ? "bg-[#0B3D2E]/60 text-[#F7EFDD]/30 border border-[#F4B942]/10 cursor-not-allowed"
-                        : "bg-gradient-to-r from-[#F4B942] to-[#E0942A] hover:brightness-110 text-[#142019] shadow-md shadow-[#F4B942]/20 active:scale-95"
-                        }`}
+                      className={`flex-1 py-3 px-4 rounded-xl font-black text-xs transition-all uppercase tracking-wider flex items-center justify-center gap-2 cursor-pointer ${
+                        isFull
+                          ? "bg-[#0B3D2E]/60 text-[#F7EFDD]/30 border border-[#F4B942]/10 cursor-not-allowed"
+                          : "bg-gradient-to-r from-[#F4B942] to-[#E0942A] hover:brightness-110 text-[#142019] shadow-md shadow-[#F4B942]/20 active:scale-95"
+                      }`}
                     >
                       <span>{isFull ? "Bàn đã đầy" : "Vào Bàn Chơi"}</span>
                       {!isFull && <ChevronRight size={14} />}
@@ -951,8 +956,9 @@ function PokerGameLobby() {
                       <h4 className="text-sm font-bold text-[#F7EFDD]">Âm thanh & Hiệu ứng</h4>
                       <button
                         onClick={() => setMuteAll(!muteAll)}
-                        className={`p-1.5 rounded-lg flex items-center gap-1 text-[10px] font-bold uppercase transition-colors ${muteAll ? "bg-[#E23744]/15 text-[#E23744] border border-[#E23744]/25" : "bg-[#0B3D2E] text-[#F7EFDD]/50"
-                          }`}
+                        className={`p-1.5 rounded-lg flex items-center gap-1 text-[10px] font-bold uppercase transition-colors ${
+                          muteAll ? "bg-[#E23744]/15 text-[#E23744] border border-[#E23744]/25" : "bg-[#0B3D2E] text-[#F7EFDD]/50"
+                        }`}
                       >
                         {muteAll ? <VolumeX size={12} /> : <Volume2 size={12} />}
                         {muteAll ? "Đã tắt tất cả" : "Mute all"}

@@ -2,9 +2,10 @@
 
 import React, { memo } from "react";
 import { usePokerGame } from "../hooks/usePokerGame";
-import { Seat } from "./Seat";
+import SeatV2 from "./v2/SeatV2";
 import { PotDisplay } from "./PotDisplay";
 import { CommunityCards } from "./CommunityCards";
+import DealerDeck from "./v2/DealerDeck";
 import { BoardStage } from "./BoardStage";
 
 export const PokerTable = memo(function PokerTable() {
@@ -14,6 +15,8 @@ export const PokerTable = memo(function PokerTable() {
     tableBackground,
     getFeltStyles,
     players,
+    waitingMessage,
+    maxPlayers,
   } = usePokerGame();
 
   const felt = getFeltStyles(tableBackground);
@@ -22,42 +25,49 @@ export const PokerTable = memo(function PokerTable() {
     /* Centering wrapper — fills parent main, centers table with flexbox */
     <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
 
-      {/* ── The 850×480 table canvas ── */}
+      {/* ── The Responsive table canvas ── */}
       <div
         ref={tableRef}
-        className="relative w-[850px] h-[480px] shrink-0 rounded-[180px] border-[16px] border-amber-950/80 shadow-[0_25px_70px_-15px_rgba(0,0,0,0.95)] flex items-center justify-center"
+        className="relative w-full max-w-[1024px] mx-2 md:mx-6 aspect-[1.6/1] sm:aspect-[1.8/1] md:aspect-[2.2/1] shrink-0 rounded-[100px] sm:rounded-[140px] md:rounded-[180px] border-[12px] sm:border-[18px] md:border-[24px] border-[#2a1708] shadow-[0_30px_80px_-10px_rgba(0,0,0,0.95),_inset_0_10px_30px_rgba(0,0,0,0.8)] flex items-center justify-center bg-[#3a200d]"
         style={{
-          transform: `scale(${tableScale})`,
-          transformOrigin: "center center",
+          boxShadow: '0 30px 60px -15px rgba(0,0,0,1), inset 0 10px 20px rgba(0,0,0,0.8), inset 0 0 15px rgba(255,255,255,0.05)',
+          backgroundImage: 'linear-gradient(to bottom, #4a2810, #1e0f06)'
         }}
       >
-        {/* Outer wood rail highlight */}
-        <div className="absolute inset-0 rounded-[165px] border border-amber-600/20 pointer-events-none" />
-
         {/* Inner felt surface */}
         <div
-          className={`absolute inset-2 rounded-[160px] bg-gradient-to-b ${felt.gradient} overflow-hidden shadow-[inset_0_6px_40px_rgba(0,0,0,0.85)]`}
+          className={`absolute inset-0 sm:inset-1 md:inset-1.5 rounded-[85px] sm:rounded-[120px] md:rounded-[160px] ${felt.gradient} overflow-hidden shadow-[inset_0_10px_40px_rgba(0,0,0,0.9),_inset_0_0_20px_rgba(0,0,0,0.8)]`}
         >
-          {/* Subtle radial light at center */}
-          <div className="absolute inset-0 opacity-[0.06] bg-[radial-gradient(ellipse_60%_40%_at_center,_white,_transparent)] pointer-events-none" />
-          {/* Inner border ring */}
-          <div className={`absolute inset-10 rounded-[120px] border ${felt.line} pointer-events-none`} />
-          {/* Second ring */}
-          <div className={`absolute inset-16 rounded-[100px] border ${felt.line} opacity-50 pointer-events-none`} />
+          {/* Subtle radial light at center for realistic felt texture */}
+          <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_center,_rgba(255,255,255,0.15)_0%,_transparent_70%)] pointer-events-none" />
+          
+          {/* Inner border ring (Betting Line) */}
+          <div className={`absolute inset-6 sm:inset-10 md:inset-14 rounded-[70px] sm:rounded-[100px] md:rounded-[140px] border-2 ${felt.line} pointer-events-none opacity-80`} />
+          
+          {/* Second ring for style */}
+          <div className={`absolute inset-10 sm:inset-16 md:inset-20 rounded-[55px] sm:rounded-[80px] md:rounded-[115px] border ${felt.line} opacity-30 pointer-events-none`} />
         </div>
+
+        {/* 3D Dealer Deck at center-top */}
+        <DealerDeck />
 
         {/* Center HUD: Pot + Community Cards + Stage */}
         <div className="absolute flex flex-col items-center justify-center text-center space-y-2 z-20">
+          {waitingMessage && (
+            <div className={`px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wider backdrop-blur-sm shadow-xl transition-all duration-300 ${waitingMessage.starting ? 'bg-amber-500/90 text-amber-950 animate-pulse' : 'bg-black/60 text-white/80'}`}>
+              {waitingMessage.text}
+            </div>
+          )}
           <PotDisplay />
           <CommunityCards />
           <BoardStage />
         </div>
 
-        {/* Player seats (indices 1 to 6) */}
-        {Array.from({ length: 6 }, (_, i) => {
+        {/* Player seats */}
+        {Array.from({ length: maxPlayers || 6 }, (_, i) => {
           const seatNumber = i + 1;
           const player = players.find((p) => p.seatIndex === seatNumber);
-          return <Seat key={`seat-${seatNumber}`} seatNumber={seatNumber} player={player} />;
+          return <SeatV2 key={`seat-${seatNumber}`} seatNumber={seatNumber} player={player} />;
         })}
       </div>
     </div>
